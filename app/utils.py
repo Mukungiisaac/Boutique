@@ -1,7 +1,30 @@
 """Utility functions and seed data for Boutique POS."""
+import os
 from datetime import datetime, timedelta
 import random
 import string
+from flask import url_for
+
+
+def extract_upload_filename(value):
+    """Return a stored filename from a bare filename, URL path, or Windows path."""
+    if not value:
+        return ''
+    cleaned = str(value).strip().replace('\\', '/').split('?', 1)[0].rstrip('/')
+    return os.path.basename(cleaned)
+
+
+def upload_url(value):
+    """Build the public URL for an uploaded file while supporting legacy values."""
+    if not value:
+        return ''
+    value = str(value).strip()
+    if value.startswith(('http://', 'https://', 'data:')):
+        return value
+    filename = extract_upload_filename(value)
+    if not filename:
+        return value
+    return url_for('uploaded_file', filename=filename)
 
 
 def seed_data():

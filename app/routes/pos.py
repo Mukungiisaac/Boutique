@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import Product, ProductVariant, Sale, SaleItem, Customer, Category
 from app.pdf_generator import generate_receipt_pdf
+from app.utils import upload_url
 
 pos_bp = Blueprint('pos', __name__)
 
@@ -44,17 +45,14 @@ def get_products():
     for p in products:
         variants = [{'id': v.id, 'size': v.size, 'color': v.color, 'stock': v.stock_qty}
                     for v in p.variants if v.stock_qty > 0]
-        image = p.image or ''
-        if image and not image.startswith('/') and not image.startswith('http'):
-            image = f'/static/uploads/{image}'
         result.append({
             'id': p.id,
             'name': p.name,
             'sku': p.sku,
-            'price': p.price,
+            'price': p.price or 0,
             'cost_price': p.cost_price or 0,
             'category': p.category.name if p.category else '',
-            'image': image,
+            'image': upload_url(p.image),
             'colors': p.colors,
             'variants': variants,
             'total_stock': p.total_stock,
@@ -114,7 +112,10 @@ def checkout():
                     return jsonify({'success': False,
                                     'message': f'Insufficient stock for {product.name}.'}), 400
 
-            unit_price = product.price
+            unit_price = float(item.get('unit_price', 0) or 0)
+            if unit_price <= 0:
+                return jsonify({'success': False,
+                                'message': f'Enter a selling price for {product.name} before checkout.'}), 400
             cost_price = product.cost_price or 0.0
             line_total = unit_price * qty
             line_cost  = cost_price * qty

@@ -42,7 +42,7 @@
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
             {% if customer.photo %}
-            <img src="{{ url_for('static', filename='uploads/' + customer.photo) }}" class="w-full h-full object-cover" alt="{{ customer.name }}">
+            <img src="{{ upload_url(customer.photo) }}" class="w-full h-full object-cover" alt="{{ customer.name }}">
             {% else %}
             <span class="text-slate-600 font-semibold text-sm">{{ customer.name[0] | upper }}</span>
             {% endif %}
@@ -276,11 +276,11 @@ async function loadCustomer(id, cardEl) {
   const tierColors = { VIP: '#7c3aed', Gold: '#f59e0b', Silver: '#94a3b8', Bronze: '#b45309' };
   const tierColor = tierColors[c.tier] || '#94a3b8';
 
-  const avatarHtml = c.photo
-    ? `<img src="/static/uploads/${c.photo}" class="w-full h-full object-cover" alt="${c.name}">`
+  const avatarHtml = c.photo_url
+    ? `<img src="${c.photo_url}" class="w-full h-full object-cover" alt="${c.name}">`
     : `<span class="text-white text-2xl font-bold">${c.name[0]}</span>`;
 
-  const avatarWrap = c.photo
+  const avatarWrap = c.photo_url
     ? `<div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0">${avatarHtml}</div>`
     : `<div class="w-16 h-16 rounded-full bg-gradient-to-br from-[#00D4C8] to-[#00B5AA] flex items-center justify-center flex-shrink-0">${avatarHtml}</div>`;
 
@@ -475,8 +475,8 @@ async function editCustomer(id) {
 
   // Show existing photo or placeholder
   const preview = document.getElementById('editPhotoPreview');
-  if (c.photo) {
-    preview.innerHTML = `<img src="/static/uploads/${c.photo}" class="w-full h-full object-cover rounded-full">`;
+  if (c.photo_url) {
+    preview.innerHTML = `<img src="${c.photo_url}" class="w-full h-full object-cover rounded-full">`;
   } else {
     preview.innerHTML = '<i class="fa-solid fa-camera text-slate-400 text-xl" id="editPhotoIcon"></i>';
   }

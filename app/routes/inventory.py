@@ -5,6 +5,7 @@ from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app import db
 from app.models import Product, ProductVariant, Category
+from app.utils import extract_upload_filename
 from sqlalchemy import func
 
 inventory_bp = Blueprint('inventory', __name__)
@@ -14,6 +15,53 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def save_product_image(file_obj):
+    if not file_obj or not file_obj.filename or not allowed_file(file_obj.filename):
+        return None
+    filename = f"{uuid.uuid4().hex}_{secure_filename(file_obj.filename)}"
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+    os.makedirs(upload_folder, exist_ok=True)
+    file_obj.save(os.path.join(upload_folder, filename))
+    return filename
+
+
+def delete_product_image(image_value):
+    filename = extract_upload_filename(image_value)
+    if not filename:
+        return
+    image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+    if os.path.exists(image_path):
+        os.remove(image_path)
+
+
+def parse_variant_rows(form_data):
+    sizes = form_data.getlist('variant_size[]')
+    colors = form_data.getlist('variant_color[]')
+    stocks = form_data.getlist('variant_stock[]')
+    variants = []
+
+    row_count = max(len(sizes), len(colors), len(stocks))
+    for i in range(row_count):
+        size = sizes[i].strip() if i < len(sizes) and sizes[i] else ''
+        color = colors[i].strip() if i < len(colors) and colors[i] else ''
+        stock_raw = stocks[i].strip() if i < len(stocks) and stocks[i] else '0'
+        stock = int(stock_raw) if stock_raw.isdigit() else 0
+
+        if not size and not color and stock == 0:
+            continue
+
+        variants.append({
+            'size': size,
+            'color': color,
+            'stock_qty': stock,
+        })
+
+    if not variants:
+        variants.append({'size': 'One Size', 'color': '', 'stock_qty': 0})
+
+    return variants
 
 
 @inventory_bp.route('/inventory')
@@ -67,11 +115,11 @@ def add_product():
             name = request.form.get('name', '').strip()
             sku = request.form.get('sku', '').strip()
             category_id = request.form.get('category_id', type=int)
-            price = request.form.get('price', type=float)
+            price = request.form.get('price', 0.0, type=float)
             cost_price = request.form.get('cost_price', 0.0, type=float)
             description = request.form.get('description', '').strip()
 
-            if not all([name, sku, category_id, price]):
+            if not all([name, sku, category_id]):
                 flash('Please fill all required fields.', 'error')
                 return render_template('inventory/form.html', categories=categories, product=None)
 
@@ -84,35 +132,27 @@ def add_product():
             image_path = ''
             if 'image' in request.files:
                 file = request.files['image']
-                if file and file.filename and allowed_file(file.filename):
-                    filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
-                    upload_folder = current_app.config['UPLOAD_FOLDER']
-                    file.save(os.path.join(upload_folder, filename))
-                    image_path = f'/static/uploads/{filename}'
+                saved_image = save_product_image(file)
+                if saved_image:
+                    image_path = saved_image
 
             product = Product(
                 name=name, sku=sku, category_id=category_id,
-                price=price, cost_price=cost_price,
+                price=price or 0.0, cost_price=cost_price,
                 description=description, image=image_path
             )
             db.session.add(product)
             db.session.flush()
 
             # Handle variants
-            sizes = request.form.getlist('variant_size[]')
-            colors = request.form.getlist('variant_color[]')
-            stocks = request.form.getlist('variant_stock[]')
-
-            if sizes:
-                for i in range(len(sizes)):
-                    size = sizes[i].strip() if i < len(sizes) else ''
-                    color = colors[i].strip() if i < len(colors) else ''
-                    stock = int(stocks[i]) if i < len(stocks) and stocks[i].isdigit() else 0
-                    v = ProductVariant(product_id=product.id, size=size, color=color, stock_qty=stock)
-                    db.session.add(v)
-            else:
-                # Default variant
-                db.session.add(ProductVariant(product_id=product.id, size='One Size', color='', stock_qty=0))
+            variants = parse_variant_rows(request.form)
+            for variant in variants:
+                db.session.add(ProductVariant(
+                    product_id=product.id,
+                    size=variant['size'],
+                    color=variant['color'],
+                    stock_qty=variant['stock_qty']
+                ))
 
             db.session.commit()
             flash(f'Product "{name}" added successfully!', 'success')
@@ -135,32 +175,29 @@ def edit_product(product_id):
             product.name = request.form.get('name', '').strip()
             product.sku = request.form.get('sku', '').strip()
             product.category_id = request.form.get('category_id', type=int)
-            product.price = request.form.get('price', type=float)
+            product.price = request.form.get('price', 0.0, type=float) or 0.0
             product.cost_price = request.form.get('cost_price', 0.0, type=float)
             product.description = request.form.get('description', '').strip()
 
             # Image update
             if 'image' in request.files:
                 file = request.files['image']
-                if file and file.filename and allowed_file(file.filename):
-                    filename = f"{uuid.uuid4().hex}_{secure_filename(file.filename)}"
-                    upload_folder = current_app.config['UPLOAD_FOLDER']
-                    file.save(os.path.join(upload_folder, filename))
-                    product.image = f'/static/uploads/{filename}'
+                saved_image = save_product_image(file)
+                if saved_image:
+                    delete_product_image(product.image)
+                    product.image = saved_image
 
             # Update variants — delete existing and recreate
             ProductVariant.query.filter_by(product_id=product.id).delete()
 
-            sizes = request.form.getlist('variant_size[]')
-            colors = request.form.getlist('variant_color[]')
-            stocks = request.form.getlist('variant_stock[]')
-
-            for i in range(len(sizes)):
-                size = sizes[i].strip() if i < len(sizes) else ''
-                color = colors[i].strip() if i < len(colors) else ''
-                stock = int(stocks[i]) if i < len(stocks) and stocks[i].isdigit() else 0
-                v = ProductVariant(product_id=product.id, size=size, color=color, stock_qty=stock)
-                db.session.add(v)
+            variants = parse_variant_rows(request.form)
+            for variant in variants:
+                db.session.add(ProductVariant(
+                    product_id=product.id,
+                    size=variant['size'],
+                    color=variant['color'],
+                    stock_qty=variant['stock_qty']
+                ))
 
             db.session.commit()
             flash(f'Product "{product.name}" updated successfully!', 'success')

@@ -94,7 +94,7 @@
                      class="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center text-white text-2xl font-bold"
                      style="background:var(--theme, #00D4C8)">
                   {% if current_user.avatar %}
-                  <img src="{{ url_for('static', filename='uploads/' + current_user.avatar) }}"
+                  <img src="{{ upload_url(current_user.avatar) }}"
                        class="w-full h-full object-cover" alt="{{ current_user.name }}">
                   {% else %}
                   <span>{{ current_user.name[0] | upper }}</span>

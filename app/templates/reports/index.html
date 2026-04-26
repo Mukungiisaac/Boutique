@@ -140,7 +140,7 @@
         <span class="text-slate-400 font-bold text-lg w-6 text-center">{{ loop.index }}</span>
         <div class="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 flex items-center justify-center">
           {% if product.image %}
-          <img src="{{ product.image }}" alt="{{ product.name }}" class="w-full h-full object-cover"/>
+          <img src="{{ upload_url(product.image) }}" alt="{{ product.name }}" class="w-full h-full object-cover"/>
           {% else %}
           <i class="fa-solid fa-shirt text-slate-300 text-sm"></i>
           {% endif %}

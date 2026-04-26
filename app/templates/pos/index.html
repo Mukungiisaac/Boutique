@@ -312,7 +312,7 @@ function renderGrid(prods) {
 
     var price = document.createElement('span');
     price.className = 'font-bold text-slate-800 text-sm';
-    price.textContent = 'KES ' + p.price.toLocaleString('en', {minimumFractionDigits: 2});
+    price.textContent = 'Cost KES ' + p.cost_price.toLocaleString('en', {minimumFractionDigits: 2});
     row.appendChild(price);
 
     // color dots
@@ -354,7 +354,8 @@ function openVariantModal(product) {
   currentProductForVariant = product;
   selectedVariantId = null;
   document.getElementById('variantProductName').textContent = product.name;
-  document.getElementById('variantProductPrice').textContent = `KES ${product.price.toFixed(2)}`;
+  document.getElementById('variantProductPrice').textContent = 'Set selling price in cart';
+  document.getElementById('variantProductCost').textContent = `Cost price: KES ${product.cost_price.toFixed(2)}`;
 
   // Show product image in modal if available
   const imgWrap = document.getElementById('variantProductImg');
@@ -407,7 +408,8 @@ function addToCart(product, variant) {
       product_id: product.id,
       variant_id: variant.id,
       name: product.name,
-      price: product.price,
+      unit_price: product.price > 0 ? product.price : 0,
+      cost_price: product.cost_price || 0,
       size: variant.size,
       color: variant.color,
       max_stock: variant.stock,
@@ -420,6 +422,14 @@ function addToCart(product, variant) {
 
 function removeFromCart(key) {
   cart = cart.filter(i => i.key !== key);
+  renderCart();
+}
+
+function updateUnitPrice(key, value) {
+  const item = cart.find(i => i.key === key);
+  if (!item) return;
+  const parsed = parseFloat(value);
+  item.unit_price = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
   renderCart();
 }
 
@@ -445,24 +455,29 @@ function renderCart() {
 
   if (!cart.length) {
     empty.style.display = 'flex';
-    // clear old rows
     container.querySelectorAll('.cart-item-row').forEach(r => r.remove());
     updateTotals();
     return;
   }
   empty.style.display = 'none';
 
-  // Re-render rows
   container.querySelectorAll('.cart-item-row').forEach(r => r.remove());
   cart.forEach(item => {
+    const unitPrice = item.unit_price || 0;
+    const lineTotal = unitPrice * item.qty;
+    const lineProfit = (unitPrice - item.cost_price) * item.qty;
+    const detailParts = [item.size];
+    if (item.color) detailParts.push(`<span style="color:${item.color}">Color</span>`);
+
     const div = document.createElement('div');
     div.className = 'cart-item-row border border-slate-100 rounded-xl p-3 mb-2 bg-white';
     div.innerHTML = `
       <div class="flex items-start gap-2">
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold text-slate-800 truncate">${item.name}</p>
-          <p class="text-xs text-slate-400">${item.size}${item.color ? ' · <span style="color:${item.color}">●</span>' : ''}</p>
-          <p class="text-sm font-bold text-[#00D4C8] mt-1">KES ${(item.price * item.qty).toFixed(2)}</p>
+          <p class="text-xs text-slate-400">${detailParts.filter(Boolean).join(' / ')}</p>
+          <p class="text-xs text-slate-400 mt-1">Cost: KES ${item.cost_price.toFixed(2)} each</p>
+          <p class="text-sm font-bold text-[#00D4C8] mt-1">KES ${lineTotal.toFixed(2)}</p>
         </div>
         <button onclick="removeFromCart('${item.key}')" class="text-slate-300 hover:text-rose-500 transition mt-0.5">
           <i class="fa-solid fa-xmark"></i>
@@ -478,7 +493,24 @@ function renderCart() {
                 class="w-7 h-7 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 transition flex items-center justify-center text-xs">
           <i class="fa-solid fa-plus"></i>
         </button>
-        <span class="ml-auto text-xs text-slate-400">× KES ${item.price.toFixed(2)}</span>
+        <span class="ml-auto text-xs text-slate-400">x KES ${unitPrice.toFixed(2)}</span>
+      </div>
+      <div class="mt-2 grid grid-cols-2 gap-2">
+        <label class="text-xs text-slate-500">
+          Selling Price
+          <div class="mt-1 flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2">
+            <span class="text-[11px] text-slate-400">KES</span>
+            <input type="number" min="0" step="0.01" value="${unitPrice || ''}"
+                   oninput="updateUnitPrice('${item.key}', this.value)"
+                   class="w-full bg-transparent py-1.5 text-sm text-slate-700 outline-none" placeholder="0.00"/>
+          </div>
+        </label>
+        <div class="text-xs text-right">
+          <p class="text-slate-400">Profit / Loss</p>
+          <p class="mt-1 font-semibold ${lineProfit >= 0 ? 'profit-positive' : 'profit-negative'}">
+            KES ${lineProfit.toFixed(2)}
+          </p>
+        </div>
       </div>`;
     container.appendChild(div);
   });
@@ -486,11 +518,37 @@ function renderCart() {
 }
 
 function updateTotals() {
-  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const subtotal = cart.reduce((s, i) => s + (i.unit_price || 0) * i.qty, 0);
+  const totalCost = cart.reduce((s, i) => s + (i.cost_price || 0) * i.qty, 0);
   const discount = parseFloat(document.getElementById('discountInput').value) || 0;
   const total = Math.max(subtotal - discount, 0);
+  const profit = total - totalCost;
   document.getElementById('subtotalDisplay').textContent = `KES ${subtotal.toFixed(2)}`;
+  document.getElementById('costDisplay').textContent = `KES ${totalCost.toFixed(2)}`;
   document.getElementById('totalDisplay').textContent = `KES ${total.toFixed(2)}`;
+
+  const profitRow = document.getElementById('profitRow');
+  const profitLabel = document.getElementById('profitLabel');
+  const profitDisplay = document.getElementById('profitDisplay');
+  if (!cart.length) {
+    profitRow.classList.add('hidden');
+    return;
+  }
+
+  profitRow.classList.remove('hidden', 'bg-emerald-50', 'bg-rose-50');
+  if (profit >= 0) {
+    profitRow.classList.add('bg-emerald-50');
+    profitLabel.textContent = 'Profit';
+    profitLabel.className = 'text-emerald-700';
+    profitDisplay.className = 'text-emerald-700';
+    profitDisplay.textContent = `KES ${profit.toFixed(2)}`;
+  } else {
+    profitRow.classList.add('bg-rose-50');
+    profitLabel.textContent = 'Loss';
+    profitLabel.className = 'text-rose-700';
+    profitDisplay.className = 'text-rose-700';
+    profitDisplay.textContent = `KES ${Math.abs(profit).toFixed(2)}`;
+  }
 }
 
 document.getElementById('discountInput').addEventListener('input', updateTotals);
@@ -520,13 +578,14 @@ async function completeSale() {
   btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Processing…';
 
   const payload = {
-    cart: cart.map(i => ({
-      product_id: i.product_id,
-      variant_id: i.variant_id,
-      quantity: i.qty,
-      size: i.size,
-      color: i.color
-    })),
+      cart: cart.map(i => ({
+        product_id: i.product_id,
+        variant_id: i.variant_id,
+        quantity: i.qty,
+        unit_price: i.unit_price || 0,
+        size: i.size,
+        color: i.color
+      })),
     customer_id: document.getElementById('customerSelect').value || null,
     payment_method: currentPayment,
     mpesa_ref: document.getElementById('mpesaRef')?.value || '',

@@ -1,5 +1,6 @@
 import os
-from flask import Flask
+import shutil
+from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from config import config
@@ -14,6 +15,13 @@ def create_app(config_name='default'):
 
     # Ensure upload folder exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    legacy_upload_folder = os.path.join(app.root_path, 'static', 'uploads')
+    if os.path.isdir(legacy_upload_folder):
+        for filename in os.listdir(legacy_upload_folder):
+            legacy_path = os.path.join(legacy_upload_folder, filename)
+            target_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            if os.path.isfile(legacy_path) and not os.path.exists(target_path):
+                shutil.copy2(legacy_path, target_path)
 
     # Init extensions
     db.init_app(app)
@@ -23,8 +31,14 @@ def create_app(config_name='default'):
     login_manager.login_message_category = 'warning'
 
     # Add Jinja2 globals
+    from app.utils import upload_url
     app.jinja_env.globals['enumerate'] = enumerate
+    app.jinja_env.globals['upload_url'] = upload_url
     app.jinja_env.filters['multiply'] = lambda x, y: x * y
+
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
     # Context processor — inject store settings into every template
     @app.context_processor

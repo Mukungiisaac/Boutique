@@ -14,7 +14,7 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
 
     # File upload config
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'app', 'static', 'uploads')
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
     MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 

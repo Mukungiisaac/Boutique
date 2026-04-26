@@ -5,6 +5,7 @@ from flask_login import login_required
 from werkzeug.utils import secure_filename
 from app import db
 from app.models import Customer, Sale, SaleItem
+from app.utils import upload_url
 
 customers_bp = Blueprint('customers', __name__)
 
@@ -190,6 +191,7 @@ def get_customer(customer_id):
         'phone': customer.phone,
         'email': customer.email,
         'photo': customer.photo or '',
+        'photo_url': upload_url(customer.photo),
         'tier': customer.tier,
         'loyalty_points': customer.loyalty_points,
         'store_credit': customer.store_credit,

@@ -188,7 +188,7 @@
                   class="flex items-center gap-2 px-2 py-1 rounded-xl hover:bg-slate-50 transition cursor-pointer">
             <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden flex-shrink-0" style="background:var(--theme, #00D4C8)">
               {% if current_user.avatar %}
-              <img src="{{ url_for('static', filename='uploads/' + current_user.avatar) }}"
+              <img src="{{ upload_url(current_user.avatar) }}"
                    class="w-full h-full object-cover" alt="{{ current_user.name }}">
               {% else %}
               {{ current_user.name[0] | upper }}
@@ -205,7 +205,7 @@
             <div class="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
               <div class="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style="background:var(--theme)">
                 {% if current_user.avatar %}
-                <img src="{{ url_for('static', filename='uploads/' + current_user.avatar) }}"
+                <img src="{{ upload_url(current_user.avatar) }}"
                      class="w-full h-full object-cover" alt="{{ current_user.name }}">
                 {% else %}
                 {{ current_user.name[0] | upper }}
