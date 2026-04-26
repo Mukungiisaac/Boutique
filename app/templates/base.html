@@ -434,6 +434,35 @@ async function markAllRead() {
   } catch(e) {}
 })();
 
+// ===== POS customer helper =====
+(function() {
+  if (window.location.pathname !== '/pos') return;
+
+  const customerSelect = document.getElementById('customerSelect');
+  if (!customerSelect) return;
+
+  const customerBlock = customerSelect.parentElement;
+  const toolbar = document.createElement('div');
+  toolbar.className = 'mb-2 flex items-center gap-2';
+  toolbar.innerHTML = `
+    <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Customer</span>
+    <a href="/customers?open=add&return_to=%2Fpos"
+       class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-800">
+      <i class="fa-solid fa-user-plus text-[11px]" style="color:var(--theme)"></i> New Customer
+    </a>
+  `;
+  customerBlock.insertBefore(toolbar, customerSelect);
+
+  const helper = document.createElement('p');
+  helper.className = 'mt-2 text-xs text-slate-400';
+  helper.textContent = 'Need a new client? Add them in Customers and we will bring them back here.';
+  customerBlock.appendChild(helper);
+
+  const params = new URLSearchParams(window.location.search);
+  const selectedCustomerId = params.get('customer_id');
+  if (selectedCustomerId) customerSelect.value = selectedCustomerId;
+})();
+
 
 
 // Auto-dismiss flash messages

@@ -250,6 +250,13 @@
 
 {% block extra_scripts %}
 <script>
+const customerPageParams = new URLSearchParams(window.location.search);
+
+function getSafeReturnTo() {
+  const returnTo = customerPageParams.get('return_to') || '';
+  return returnTo.startsWith('/') ? returnTo : '';
+}
+
 // ===== Load customer detail via AJAX =====
 async function loadCustomer(id, cardEl) {
   document.querySelectorAll('.customer-card').forEach(c => {
@@ -432,7 +439,16 @@ async function saveNewCustomer() {
   if (data.success) {
     showToast('Customer added!');
     closeAddModal();
-    setTimeout(() => location.reload(), 800);
+    const returnTo = getSafeReturnTo();
+    if (returnTo) {
+      const redirectUrl = new URL(returnTo, window.location.origin);
+      redirectUrl.searchParams.set('customer_id', data.id);
+      setTimeout(() => { window.location.href = redirectUrl.toString(); }, 800);
+      return;
+    }
+    const customerUrl = new URL('/customers', window.location.origin);
+    customerUrl.searchParams.set('id', data.id);
+    setTimeout(() => { window.location.href = customerUrl.toString(); }, 800);
   } else {
     showToast(data.message, 'error');
   }
@@ -529,5 +545,11 @@ window.addEventListener('DOMContentLoaded', function() {
   if (initialCard) loadCustomer({{ selected_customer.id }}, initialCard);
 });
 {% endif %}
+
+window.addEventListener('DOMContentLoaded', function() {
+  if (customerPageParams.get('open') === 'add') {
+    openAddModal();
+  }
+});
 </script>
 {% endblock %}

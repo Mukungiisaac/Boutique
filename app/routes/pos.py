@@ -15,7 +15,13 @@ pos_bp = Blueprint('pos', __name__)
 def index():
     categories = Category.query.all()
     customers = Customer.query.order_by(Customer.name).all()
-    return render_template('pos/index.html', categories=categories, customers=customers)
+    selected_customer_id = request.args.get('customer_id', type=int)
+    return render_template(
+        'pos/index.html',
+        categories=categories,
+        customers=customers,
+        selected_customer_id=selected_customer_id
+    )
 
 
 @pos_bp.route('/pos/products')

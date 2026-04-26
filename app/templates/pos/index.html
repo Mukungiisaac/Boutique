@@ -589,11 +589,11 @@ document.querySelectorAll('.cat-pill').forEach(pill => {
 });
 
 // ===== Search =====
-let searchTimer;
+let posSearchTimer;
 document.getElementById('productSearch').addEventListener('input', function() {
-  clearTimeout(searchTimer);
+  clearTimeout(posSearchTimer);
   const activeCat = document.querySelector('.cat-pill.active')?.dataset.cat || '';
-  searchTimer = setTimeout(() => loadProducts(this.value, activeCat), 250);
+  posSearchTimer = setTimeout(() => loadProducts(this.value, activeCat), 250);
 });
 
 // Close variant modal on backdrop click
