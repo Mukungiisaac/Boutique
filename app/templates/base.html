@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}{{ store_name }}{% endblock %} | {{ store_name }}</title>
+  <meta name="description" content="{{ store_name }} — Elegant Retail Management System"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script>
+    // Dynamic theme color from settings
+    const THEME = '{{ theme_color }}';
+    // Derive dark (-15% lightness) and light (95% lightness tint) variants
+    function hexToHsl(hex) {
+      let r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+      let max=Math.max(r,g,b), min=Math.min(r,g,b), h,s,l=(max+min)/2;
+      if(max===min){h=s=0;}else{let d=max-min;s=l>.5?d/(2-max-min):d/(max+min);switch(max){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;case b:h=(r-g)/d+4;break;}h/=6;}
+      return [Math.round(h*360), Math.round(s*100), Math.round(l*100)];
+    }
+    function hslToHex(h,s,l) {
+      s/=100;l/=100;let a=s*Math.min(l,1-l),f=n=>{let k=(n+h/30)%12,c=a*Math.max(Math.min(k-3,9-k,1),-1);return Math.round(255*(l-c)).toString(16).padStart(2,'0');};
+      return '#'+f(0)+f(8)+f(4);
+    }
+    const [h,s,l] = hexToHsl(THEME);
+    const THEME_DARK  = hslToHex(h, s, Math.max(l-12, 10));
+    const THEME_LIGHT = hslToHex(h, Math.round(s*0.3), 96);
+    const THEME_RING  = THEME + '26'; // 15% opacity for focus ring
+
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            primary: { DEFAULT: THEME, dark: THEME_DARK, light: THEME_LIGHT },
+            accent:  { DEFAULT: '#FF6B6B', dark: '#E05555' },
+          },
+          boxShadow: {
+            card: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+            hover: '0 4px 12px rgba(0,0,0,0.10)',
+            modal: '0 20px 60px rgba(0,0,0,0.15)'
+          }
+        }
+      }
+    }
+
+    // Inject CSS variables for inline styles
+    document.addEventListener('DOMContentLoaded', function() {
+      document.documentElement.style.setProperty('--theme', THEME);
+      document.documentElement.style.setProperty('--theme-dark', THEME_DARK);
+      document.documentElement.style.setProperty('--theme-light', THEME_LIGHT);
+    });
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+    .sidebar-link { display:flex; align-items:center; gap:.75rem; padding:.625rem 1rem; border-radius:.5rem; color:#475569; font-size:.875rem; font-weight:500; transition:all .15s; text-decoration:none; }
+    .sidebar-link:hover { background: var(--theme-light, #E6FAF9); color: var(--theme, #00D4C8); }
+    .sidebar-link.active { background: var(--theme-light, #E6FAF9); color: var(--theme, #00D4C8); font-weight:600; }
+    .toast { animation: slideIn .3s ease; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .modal-backdrop { animation: fadeIn .15s ease; }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    .modal-content { animation: scaleIn .2s ease; }
+    @keyframes scaleIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--theme, #00D4C8) !important; box-shadow: 0 0 0 3px var(--theme-ring, rgba(0,212,200,.15)); }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ===== APP SHELL ===== -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="w-[220px] flex-shrink-0 bg-white border-r border-slate-100 flex flex-col h-full">
+    <!-- Logo -->
+    <div class="px-5 py-5 border-b border-slate-100">
+      <a href="{{ url_for('dashboard.index') }}" class="flex items-center gap-2.5" style="text-decoration:none">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--theme, #00D4C8)">
+          <i class="fa-solid fa-diamond text-white text-sm"></i>
+        </div>
+        <span class="font-bold text-slate-800 text-base leading-tight">{{ store_name.split()[0] if store_name else 'Boutique' }}<br><span style="color:var(--theme, #00D4C8);font-size:.75rem;font-weight:600;letter-spacing:.05em">{{ store_name.split()[1] if store_name.split()|length > 1 else 'POS' }}</span></span>
+      </a>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <a href="{{ url_for('dashboard.index') }}"
+         class="sidebar-link {% if request.endpoint and 'dashboard' in request.endpoint %}active{% endif %}">
+        <i class="fa-solid fa-chart-pie w-4"></i> Dashboard
+        {% if request.endpoint and 'dashboard' in request.endpoint %}
+        <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
+      </a>
+      <a href="{{ url_for('pos.index') }}"
+         class="sidebar-link {% if request.endpoint and 'pos' in request.endpoint %}active{% endif %}">
+        <i class="fa-solid fa-cash-register w-4"></i> POS
+        {% if request.endpoint and 'pos' in request.endpoint %}
+        <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
+      </a>
+      <a href="{{ url_for('inventory.index') }}"
+         class="sidebar-link {% if request.endpoint and 'inventory' in request.endpoint %}active{% endif %}">
+        <i class="fa-solid fa-box w-4"></i> Inventory
+        {% if request.endpoint and 'inventory' in request.endpoint %}
+        <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
+      </a>
+      <a href="{{ url_for('customers.index') }}"
+         class="sidebar-link {% if request.endpoint and 'customers' in request.endpoint %}active{% endif %}">
+        <i class="fa-solid fa-users w-4"></i> Customers
+        {% if request.endpoint and 'customers' in request.endpoint %}
+        <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
+      </a>
+      <a href="{{ url_for('reports.index') }}"
+         class="sidebar-link {% if request.endpoint and 'reports' in request.endpoint %}active{% endif %}">
+        <i class="fa-solid fa-chart-bar w-4"></i> Reports
+        {% if request.endpoint and 'reports' in request.endpoint %}
+        <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
+      </a>
+    </nav>
+
+    <!-- Bottom links -->
+    <div class="px-3 pb-4 border-t border-slate-100 pt-3 space-y-1">
+      <a href="{{ url_for('settings.index') }}"
+         class="sidebar-link {% if request.endpoint and 'settings' in request.endpoint %}active{% endif %}">
+        <i class="fa-solid fa-cog w-4"></i> Settings
+      </a>
+      <a href="{{ url_for('auth.logout') }}"
+         class="sidebar-link" style="color:#f43f5e;">
+        <i class="fa-solid fa-arrow-right-from-bracket w-4"></i> Log Out
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main area -->
+  <div class="flex-1 flex flex-col h-full overflow-hidden">
+
+    <!-- Top bar -->
+    <header class="bg-white border-b border-slate-100 px-6 py-3 flex items-center gap-4 z-10 flex-shrink-0">
+      <h1 class="font-semibold text-slate-800 text-base flex-shrink-0">{% block page_title %}Dashboard{% endblock %}</h1>
+
+      <!-- Global search -->
+      <div class="flex-1 max-w-md relative" id="globalSearchWrap">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+        <input type="text" id="globalSearch" placeholder="Quick search..."
+               class="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl transition-all"/>
+        <div id="searchDropdown" class="hidden absolute top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden"></div>
+      </div>
+
+      <div class="ml-auto flex items-center gap-3">
+
+        <!-- ===== Notification Bell ===== -->
+        <div class="relative" id="notifWrap">
+          <button id="notifBtn"
+                  onclick="toggleNotif()"
+                  class="relative w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition">
+            <i class="fa-regular fa-bell text-slate-500 text-sm"></i>
+            <span id="notifDot" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full hidden" style="background:var(--theme)"></span>
+          </button>
+
+          <!-- Dropdown -->
+          <div id="notifDropdown"
+               class="hidden absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-modal z-[200] overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <span class="text-sm font-semibold text-slate-800">Notifications</span>
+              <button onclick="markAllRead()" class="text-xs font-medium hover:underline" style="color:var(--theme)">Mark all read</button>
+            </div>
+            <div id="notifList" class="max-h-72 overflow-y-auto divide-y divide-slate-50">
+              <div class="px-4 py-8 text-center text-sm text-slate-400">
+                <i class="fa-regular fa-bell-slash text-2xl block mb-2 text-slate-200"></i>
+                Loading…
+              </div>
+            </div>
+            <div class="px-4 py-2.5 border-t border-slate-100 text-center">
+              <a href="{{ url_for('reports.index') }}" class="text-xs font-semibold hover:underline" style="color:var(--theme)">View all activity →</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== User Menu ===== -->
+        <div class="relative" id="userMenuWrap">
+          <button id="userMenuBtn"
+                  onclick="toggleUserMenu()"
+                  class="flex items-center gap-2 px-2 py-1 rounded-xl hover:bg-slate-50 transition cursor-pointer">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden flex-shrink-0" style="background:var(--theme, #00D4C8)">
+              {% if current_user.avatar %}
+              <img src="{{ url_for('static', filename='uploads/' + current_user.avatar) }}"
+                   class="w-full h-full object-cover" alt="{{ current_user.name }}">
+              {% else %}
+              {{ current_user.name[0] | upper }}
+              {% endif %}
+            </div>
+            <span class="text-sm font-medium text-slate-700 hidden md:block">{{ current_user.name.split()[0] }}</span>
+            <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] hidden md:block"></i>
+          </button>
+
+          <!-- Dropdown -->
+          <div id="userMenuDropdown"
+               class="hidden absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-modal z-[200] overflow-hidden">
+            <!-- User info header -->
+            <div class="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style="background:var(--theme)">
+                {% if current_user.avatar %}
+                <img src="{{ url_for('static', filename='uploads/' + current_user.avatar) }}"
+                     class="w-full h-full object-cover" alt="{{ current_user.name }}">
+                {% else %}
+                {{ current_user.name[0] | upper }}
+                {% endif %}
+              </div>
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-slate-800 truncate">{{ current_user.name }}</p>
+                <p class="text-xs text-slate-400 truncate">{{ current_user.email }}</p>
+              </div>
+            </div>
+            <!-- Menu items -->
+            <div class="py-1.5">
+              <a href="{{ url_for('settings.index') }}"
+                 class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition">
+                <i class="fa-solid fa-user-pen w-4 text-slate-400"></i> Edit Profile
+              </a>
+              <a href="{{ url_for('settings.index') }}"
+                 class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition">
+                <i class="fa-solid fa-cog w-4 text-slate-400"></i> Settings
+              </a>
+              <div class="border-t border-slate-100 my-1"></div>
+              <a href="{{ url_for('auth.logout') }}"
+                 class="flex items-center gap-3 px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-50 transition">
+                <i class="fa-solid fa-arrow-right-from-bracket w-4"></i> Log Out
+              </a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div id="flashContainer" class="px-6 pt-3 space-y-2 flex-shrink-0">
+          {% for cat, msg in messages %}
+          <div class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium
+            {% if cat == 'success' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+            {% elif cat == 'error' %}bg-rose-50 text-rose-700 border border-rose-200
+            {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+            <i class="fa-solid {% if cat == 'success' %}fa-circle-check{% elif cat == 'error' %}fa-circle-xmark{% else %}fa-circle-info{% endif %}"></i>
+            {{ msg }}
+            <button onclick="this.parentElement.remove()" class="ml-auto opacity-60 hover:opacity-100">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Page content -->
+    <main class="flex-1 overflow-y-auto">
+      {% block app_content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-100 px-6 py-2.5 flex items-center justify-between text-xs text-slate-400 flex-shrink-0">
+      <span>&copy; 2024 {{ store_name }} &bull; Elegant Retail Solutions</span>
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block"></span> System Online
+        </span>
+        <a href="#" class="hover:text-slate-600">Support</a>
+        <a href="#" class="hover:text-slate-600">Legal</a>
+      </div>
+    </footer>
+
+  </div>
+</div>
+
+<!-- Toast notification container -->
+<div id="toastContainer" class="fixed bottom-6 right-6 z-[9999] space-y-3 pointer-events-none"></div>
+
+<script>
+// ===== Global Toast =====
+function showToast(message, type) {
+  type = type || 'success';
+  var icons = { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info', warning: 'fa-triangle-exclamation' };
+  var colors = { success: '#059669', error: '#e11d48', info: '#2563eb', warning: '#d97706' };
+  var container = document.getElementById('toastContainer');
+  var toast = document.createElement('div');
+  toast.className = 'toast flex items-center gap-3 px-4 py-3.5 rounded-xl text-white text-sm font-medium shadow-lg pointer-events-auto';
+  toast.style.background = colors[type] || colors.info;
+  toast.innerHTML = '<i class="fa-solid ' + (icons[type] || icons.info) + '"></i><span>' + message + '</span>';
+  container.appendChild(toast);
+  setTimeout(function() {
+    toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all .3s';
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 3500);
+}
+
+// ===== Global Search =====
+var globalSearch = document.getElementById('globalSearch');
+var searchDropdown = document.getElementById('searchDropdown');
+if (globalSearch) {
+  var searchTimer;
+  globalSearch.addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    var q = this.value.trim();
+    if (q.length < 2) { searchDropdown.classList.add('hidden'); return; }
+    searchTimer = setTimeout(async function() {
+      var res = await fetch('/api/search?q=' + encodeURIComponent(q));
+      var data = await res.json();
+      var html = '';
+      if (data.products.length) {
+        html += '<div class="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wide border-b">Products</div>';
+        data.products.forEach(function(p) {
+          html += '<a href="/inventory" class="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition text-sm"><i class="fa-solid fa-box text-teal-400 w-4"></i><span class="font-medium">' + p.name + '</span><span class="ml-auto text-slate-500">KES ' + p.price.toFixed(2) + '</span></a>';
+        });
+      }
+      if (data.customers.length) {
+        html += '<div class="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wide border-b border-t mt-1">Customers</div>';
+        data.customers.forEach(function(c) {
+          html += '<a href="/customers?id=' + c.id + '" class="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition text-sm"><i class="fa-solid fa-user text-teal-400 w-4"></i><span class="font-medium">' + c.name + '</span><span class="ml-auto text-slate-500">' + c.phone + '</span></a>';
+        });
+      }
+      if (!html) html = '<div class="px-4 py-6 text-center text-sm text-slate-400">No results for "' + q + '"</div>';
+      searchDropdown.innerHTML = html;
+      searchDropdown.classList.remove('hidden');
+    }, 300);
+  });
+  document.addEventListener('click', function(e) {
+    if (!document.getElementById('globalSearchWrap').contains(e.target))
+      searchDropdown.classList.add('hidden');
+  });
+}
+
+// ===== Notification Bell =====
+var notifLoaded = false;
+var notifOpen   = false;
+var userOpen    = false;
+
+function toggleNotif() {
+  notifOpen = !notifOpen;
+  document.getElementById('notifDropdown').classList.toggle('hidden', !notifOpen);
+  // close user menu
+  userOpen = false;
+  document.getElementById('userMenuDropdown').classList.add('hidden');
+  if (notifOpen && !notifLoaded) loadNotifications();
+}
+
+function toggleUserMenu() {
+  userOpen = !userOpen;
+  document.getElementById('userMenuDropdown').classList.toggle('hidden', !userOpen);
+  // close notif
+  notifOpen = false;
+  document.getElementById('notifDropdown').classList.add('hidden');
+}
+
+// Close both on outside click
+document.addEventListener('click', function(e) {
+  if (!document.getElementById('notifWrap').contains(e.target)) {
+    notifOpen = false;
+    document.getElementById('notifDropdown').classList.add('hidden');
+  }
+  if (!document.getElementById('userMenuWrap').contains(e.target)) {
+    userOpen = false;
+    document.getElementById('userMenuDropdown').classList.add('hidden');
+  }
+});
+
+async function loadNotifications() {
+  try {
+    const res  = await fetch('/api/notifications');
+    const data = await res.json();
+    notifLoaded = true;
+    renderNotifications(data.notifications, data.unread);
+  } catch(e) {
+    document.getElementById('notifList').innerHTML =
+      '<div class="px-4 py-6 text-center text-sm text-slate-400">Could not load notifications.</div>';
+  }
+}
+
+function renderNotifications(items, unread) {
+  // Show/hide dot
+  const dot = document.getElementById('notifDot');
+  dot.classList.toggle('hidden', unread === 0);
+
+  const list = document.getElementById('notifList');
+  if (!items.length) {
+    list.innerHTML = '<div class="px-4 py-8 text-center text-sm text-slate-400"><i class="fa-regular fa-bell-slash text-2xl block mb-2 text-slate-200"></i>All caught up!</div>';
+    return;
+  }
+
+  const iconMap = {
+    low_stock:  { icon: 'fa-box',          bg: '#fef3c7', color: '#d97706' },
+    new_sale:   { icon: 'fa-cash-register', bg: '#d1fae5', color: '#059669' },
+    new_customer:{ icon: 'fa-user-plus',   bg: '#dbeafe', color: '#2563eb' },
+    info:       { icon: 'fa-circle-info',  bg: '#f1f5f9', color: '#64748b' },
+  };
+
+  list.innerHTML = items.map(n => {
+    const t = iconMap[n.type] || iconMap.info;
+    return `
+    <div class="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition ${n.read ? 'opacity-60' : ''}">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+           style="background:${t.bg}">
+        <i class="fa-solid ${t.icon} text-xs" style="color:${t.color}"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-slate-700 leading-snug">${n.title}</p>
+        <p class="text-xs text-slate-400 mt-0.5">${n.body}</p>
+        <p class="text-[11px] text-slate-300 mt-1">${n.time}</p>
+      </div>
+      ${!n.read ? `<span class="w-2 h-2 rounded-full flex-shrink-0 mt-2" style="background:var(--theme)"></span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function markAllRead() {
+  await fetch('/api/notifications/read', { method: 'POST' });
+  document.getElementById('notifDot').classList.add('hidden');
+  // grey out all items
+  document.querySelectorAll('#notifList .flex').forEach(el => el.classList.add('opacity-60'));
+  document.querySelectorAll('#notifList span[style*="--theme"]').forEach(el => el.remove());
+}
+
+// Load unread count on page load (just the dot, no full fetch)
+(async function() {
+  try {
+    const res  = await fetch('/api/notifications/count');
+    const data = await res.json();
+    if (data.unread > 0) document.getElementById('notifDot').classList.remove('hidden');
+  } catch(e) {}
+})();
+
+
+
+// Auto-dismiss flash messages
+setTimeout(function() {
+  var fc = document.getElementById('flashContainer');
+  if (fc) fc.style.display = 'none';
+}, 5000);
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

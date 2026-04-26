@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}{% if product %}Edit{% else %}Add{% endif %} Product{% endblock %}
+{% block page_title %}{% if product %}Edit Product{% else %}Add New Product{% endif %}{% endblock %}
+
+{% block app_content %}
+<div class="p-6 max-w-3xl mx-auto">
+
+  <div class="mb-5">
+    <a href="{{ url_for('inventory.index') }}"
+       class="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition">
+      <i class="fa-solid fa-arrow-left text-xs"></i> Back to Inventory
+    </a>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-card">
+    <div class="px-6 py-5 border-b border-slate-100">
+      <h2 class="font-semibold text-slate-800 text-base">
+        {{ 'Edit Product Details' if product else 'Add New Product' }}
+      </h2>
+      <p class="text-xs text-slate-400 mt-0.5">Fill in the product details below. All required fields are marked *</p>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" id="productForm" class="p-6 space-y-6">
+
+      <!-- Product info grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <!-- Name -->
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Product Name *</label>
+          <input type="text" name="name" required
+                 value="{{ product.name if product else '' }}"
+                 placeholder="e.g. Silk Wrap Midi Dress"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+
+        <!-- SKU -->
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">SKU *</label>
+          <input type="text" name="sku" required
+                 value="{{ product.sku if product else '' }}"
+                 placeholder="e.g. DRS-001-SLK"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all font-mono"/>
+        </div>
+
+        <!-- Category -->
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Category *</label>
+          <select name="category_id" required
+                  class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all">
+            <option value="">Select category…</option>
+            {% for cat in categories %}
+            <option value="{{ cat.id }}" {{ 'selected' if product and product.category_id == cat.id else '' }}>
+              {{ cat.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Price -->
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Selling Price (KES) *</label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">KES</span>
+            <input type="number" name="price" step="0.01" min="0" required
+                   value="{{ product.price if product else '' }}"
+                   placeholder="0.00"
+                   class="w-full pl-12 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+          </div>
+        </div>
+
+        <!-- Cost Price -->
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Cost Price (KES)</label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">KES</span>
+            <input type="number" name="cost_price" step="0.01" min="0"
+                   value="{{ product.cost_price if product else '' }}"
+                   placeholder="0.00"
+                   class="w-full pl-12 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Description</label>
+          <textarea name="description" rows="3"
+                    placeholder="Product description..."
+                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all resize-none">{{ product.description if product else '' }}</textarea>
+        </div>
+      </div>
+
+      <!-- Image upload -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Product Image</label>
+        <div class="flex items-center gap-4">
+          {% if product and product.image %}
+          <img id="imagePreview" src="{{ product.image }}" alt="" class="w-20 h-20 rounded-xl object-cover border border-slate-200"/>
+          {% else %}
+          <div id="imagePreview" class="w-20 h-20 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center">
+            <i class="fa-solid fa-image text-slate-300 text-2xl"></i>
+          </div>
+          {% endif %}
+          <div class="flex-1">
+            <label class="flex items-center gap-2 cursor-pointer px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition w-fit">
+              <i class="fa-solid fa-upload text-xs text-slate-400"></i>
+              Upload Image
+              <input type="file" name="image" accept="image/*" class="hidden" id="imageInput"/>
+            </label>
+            <p class="text-xs text-slate-400 mt-1.5">PNG, JPG, WEBP up to 5MB</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variants -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <label class="text-sm font-semibold text-slate-700">Stock Variants</label>
+            <p class="text-xs text-slate-400 mt-0.5">Add size/color combinations with stock quantities.</p>
+          </div>
+          <button type="button" onclick="addVariantRow()"
+                  class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#00D4C8] text-white rounded-lg hover:bg-[#00B5AA] transition">
+            <i class="fa-solid fa-plus"></i> Add Variant
+          </button>
+        </div>
+
+        <div id="variantsContainer" class="space-y-2">
+          <!-- Header -->
+          <div class="grid grid-cols-3 gap-3 px-3 py-2 bg-slate-50 rounded-lg text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <span>Size</span><span>Color (hex)</span><span>Stock Qty</span>
+          </div>
+          {% if product %}
+            {% for variant in product.variants %}
+            <div class="variant-row grid grid-cols-3 gap-3 items-center">
+              <input type="text" name="variant_size[]" value="{{ variant.size }}" placeholder="e.g. S, M, 38"
+                     class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition-all"/>
+              <div class="flex items-center gap-2">
+                <input type="color" class="color-picker w-8 h-8 rounded cursor-pointer border border-slate-200" value="{{ variant.color if variant.color.startswith('#') else '#cccccc' }}"/>
+                <input type="text" name="variant_color[]" value="{{ variant.color }}" placeholder="#000000"
+                       class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition-all font-mono"/>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="number" name="variant_stock[]" value="{{ variant.stock_qty }}" min="0" placeholder="0"
+                       class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition-all"/>
+                <button type="button" onclick="this.closest('.variant-row').remove()"
+                        class="text-rose-400 hover:text-rose-600 transition text-sm">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+          <!-- Default empty row -->
+          <div class="variant-row grid grid-cols-3 gap-3 items-center">
+            <input type="text" name="variant_size[]" placeholder="e.g. S, M, 38"
+                   class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition-all"/>
+            <div class="flex items-center gap-2">
+              <input type="color" class="color-picker w-8 h-8 rounded cursor-pointer border border-slate-200" value="#cccccc"/>
+              <input type="text" name="variant_color[]" placeholder="#cccccc" value="#cccccc"
+                     class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition-all font-mono"/>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="number" name="variant_stock[]" min="0" placeholder="0" value="0"
+                     class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition-all"/>
+              <button type="button" onclick="this.closest('.variant-row').remove()"
+                      class="text-rose-400 hover:text-rose-600 transition text-sm">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3 pt-4 border-t border-slate-100">
+        <a href="{{ url_for('inventory.index') }}"
+           class="flex-1 py-3 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition text-center">
+          Cancel
+        </a>
+        <button type="submit"
+                class="flex-1 py-3 bg-[#00D4C8] hover:bg-[#00B5AA] text-white rounded-xl text-sm font-bold transition shadow-sm shadow-teal-100">
+          {{ 'Save Changes' if product else 'Add Product' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function addVariantRow() {
+  const container = document.getElementById('variantsContainer');
+  const row = document.createElement('div');
+  row.className = 'variant-row grid grid-cols-3 gap-3 items-center';
+  row.innerHTML = `
+    <input type="text" name="variant_size[]" placeholder="e.g. S, M, 38"
+           class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition-all"/>
+    <div class="flex items-center gap-2">
+      <input type="color" class="color-picker w-8 h-8 rounded cursor-pointer border border-slate-200" value="#cccccc"/>
+      <input type="text" name="variant_color[]" placeholder="#cccccc" value="#cccccc"
+             class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition-all font-mono"/>
+    </div>
+    <div class="flex items-center gap-2">
+      <input type="number" name="variant_stock[]" min="0" placeholder="0" value="0"
+             class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:bg-white transition-all"/>
+      <button type="button" onclick="this.closest('.variant-row').remove()"
+              class="text-rose-400 hover:text-rose-600 transition text-sm">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>`;
+  container.appendChild(row);
+  bindColorPickers();
+}
+
+function bindColorPickers() {
+  document.querySelectorAll('.color-picker').forEach(picker => {
+    picker.addEventListener('input', function() {
+      const textInput = this.nextElementSibling;
+      if (textInput) textInput.value = this.value;
+    });
+  });
+  document.querySelectorAll('input[name="variant_color[]"]').forEach(inp => {
+    inp.addEventListener('input', function() {
+      const colorPicker = this.previousElementSibling;
+      if (colorPicker && colorPicker.type === 'color' && /^#[0-9a-fA-F]{6}$/.test(this.value))
+        colorPicker.value = this.value;
+    });
+  });
+}
+
+// Image preview
+document.getElementById('imageInput')?.addEventListener('change', function() {
+  if (!this.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const prev = document.getElementById('imagePreview');
+    prev.outerHTML = `<img id="imagePreview" src="${e.target.result}" alt="" class="w-20 h-20 rounded-xl object-cover border border-slate-200"/>`;
+  };
+  reader.readAsDataURL(this.files[0]);
+});
+
+bindColorPickers();
+</script>
+{% endblock %}

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Receipt #{{ sale.order_number }} | Boutique POS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex items-center justify-center p-6">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-lg overflow-hidden">
+    <!-- Header -->
+    <div class="bg-[#00D4C8] px-6 py-6 text-center text-white">
+      <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2">
+        <span class="text-white font-bold text-lg">B</span>
+      </div>
+      <h1 class="font-bold text-xl">Boutique POS</h1>
+      <p class="text-sm text-white/80">Elegant Retail Solutions</p>
+    </div>
+
+    <div class="px-6 py-5">
+      <div class="text-center mb-5">
+        <p class="text-xs text-slate-400 uppercase tracking-wide mb-1">Receipt</p>
+        <p class="font-bold text-slate-800 text-lg">#{{ sale.order_number }}</p>
+        <p class="text-xs text-slate-400 mt-1">{{ sale.created_at.strftime('%d %B %Y, %H:%M') }}</p>
+      </div>
+
+      <!-- Divider -->
+      <div class="border-t border-dashed border-slate-200 my-4"></div>
+
+      <!-- Items -->
+      <div class="space-y-3 mb-4">
+        {% for item in items %}
+        <div class="flex items-start justify-between text-sm">
+          <div class="flex-1">
+            <p class="font-medium text-slate-800">{{ item.product_name }}</p>
+            {% if item.size or item.color %}
+            <p class="text-xs text-slate-400">{{ item.size }}{% if item.size and item.color %} / {% endif %}{{ item.color }}</p>
+            {% endif %}
+            <p class="text-xs text-slate-400">× {{ item.quantity }} @ KES {{ "{:,.2f}".format(item.unit_price) }}</p>
+          </div>
+          <span class="font-semibold text-slate-800">KES {{ "{:,.2f}".format(item.line_total) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="border-t border-dashed border-slate-200 my-4"></div>
+
+      <!-- Totals -->
+      <div class="space-y-2 text-sm mb-4">
+        <div class="flex justify-between text-slate-600">
+          <span>Subtotal</span>
+          <span>KES {{ "{:,.2f}".format(sale.subtotal) }}</span>
+        </div>
+        {% if sale.discount > 0 %}
+        <div class="flex justify-between text-rose-500">
+          <span>Discount</span>
+          <span>- KES {{ "{:,.2f}".format(sale.discount) }}</span>
+        </div>
+        {% endif %}
+        <div class="flex justify-between font-bold text-slate-800 text-base pt-2 border-t border-slate-100">
+          <span>Total</span>
+          <span class="text-[#00D4C8]">KES {{ "{:,.2f}".format(sale.total_amount) }}</span>
+        </div>
+      </div>
+
+      <div class="border-t border-dashed border-slate-200 my-4"></div>
+
+      <!-- Payment info -->
+      <div class="space-y-1.5 text-sm text-slate-600 mb-4">
+        <div class="flex justify-between">
+          <span>Payment Method</span>
+          <span class="font-semibold capitalize">{{ sale.payment_method }}</span>
+        </div>
+        {% if sale.mpesa_ref %}
+        <div class="flex justify-between">
+          <span>M-Pesa Ref</span>
+          <span class="font-mono font-semibold">{{ sale.mpesa_ref }}</span>
+        </div>
+        {% endif %}
+        <div class="flex justify-between">
+          <span>Cashier</span>
+          <span class="font-semibold">{{ sale.cashier.name if sale.cashier else '—' }}</span>
+        </div>
+        {% if sale.customer %}
+        <div class="flex justify-between">
+          <span>Customer</span>
+          <span class="font-semibold">{{ sale.customer.name }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Footer -->
+      <div class="text-center text-xs text-slate-400 mt-6">
+        <p class="font-medium text-slate-600 mb-1">Thank you for shopping with us!</p>
+        <p>All sales are final. Exchange within 7 days with receipt.</p>
+      </div>
+    </div>
+
+    <!-- Print / Close buttons -->
+    <div class="px-6 pb-6 flex flex-col gap-3 no-print">
+      <div class="flex gap-3">
+        <button onclick="window.print()"
+                class="flex-1 py-2.5 bg-[#00D4C8] hover:bg-[#00B5AA] text-white rounded-xl text-sm font-bold transition">
+          🖨 Print Receipt
+        </button>
+        <a href="{{ url_for('pos.receipt_pdf', sale_id=sale.id) }}"
+           class="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition flex items-center justify-center">
+          📄 Download PDF
+        </a>
+      </div>
+      <button onclick="window.close()"
+              class="w-full py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition">
+        Close
+      </button>
+    </div>
+  </div>
+</body>
+</html>

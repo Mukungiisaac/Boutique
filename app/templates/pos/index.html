@@ -1,0 +1,607 @@
+{% extends "base.html" %}
+{% block title %}Point of Sale{% endblock %}
+{% block page_title %}Point of Sale{% endblock %}
+
+{% block extra_head %}
+<style>
+  .pcard { cursor:pointer; transition:transform .15s,box-shadow .15s; border-radius:16px; overflow:hidden; background:#fff; border:1px solid #f1f5f9; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .pcard:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.10); }
+  .pcard:active { transform:scale(.97); }
+  .pcard-img { width:100%; padding-bottom:100%; position:relative; overflow:hidden; background:#f8fafc; }
+  .pcard-img img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transition:transform .3s; }
+  .pcard:hover .pcard-img img { transform:scale(1.05); }
+  .pcard-placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#f1f5f9,#e2e8f0); }
+  .cat-pill { cursor:pointer; transition:all .15s; white-space:nowrap; }
+  .cat-pill.active { background:var(--theme,#00D4C8)!important; color:#fff!important; border-color:var(--theme,#00D4C8)!important; }
+  .cart-row { animation:fadeIn .15s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+  .profit-positive { color:#059669; }
+  .profit-negative { color:#e11d48; }
+</style>
+{% endblock %}
+
+{% block app_content %}
+<div class="flex h-full overflow-hidden">
+
+  <!-- ===== LEFT: Product Grid ===== -->
+  <div class="flex-1 flex flex-col overflow-hidden border-r border-slate-100 bg-slate-50">
+
+    <!-- Search -->
+    <div class="px-5 pt-4 pb-2 flex-shrink-0 bg-white border-b border-slate-100">
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        <input type="text" id="productSearch" placeholder="Search products by name or SKU..."
+               class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+      </div>
+    </div>
+
+    <!-- Category pills -->
+    <div class="px-5 py-2.5 flex-shrink-0 bg-white border-b border-slate-100">
+      <div class="flex items-center gap-2 overflow-x-auto" style="scrollbar-width:none">
+        <span class="cat-pill active px-3 py-1.5 rounded-full text-sm font-medium border border-slate-200 text-white"
+              style="background:var(--theme)" data-cat="">
+          <i class="fa-solid fa-filter text-xs mr-1"></i>All
+        </span>
+        {% for cat in categories %}
+        <span class="cat-pill px-3 py-1.5 rounded-full text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50"
+              data-cat="{{ cat.id }}">{{ cat.name }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div class="flex-1 overflow-y-auto p-5">
+      <div id="productGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
+      <div id="noProducts" style="display:none" class="py-20 text-center">
+        <i class="fa-solid fa-box-open text-slate-300 text-4xl block mb-3"></i>
+        <p class="text-slate-400 text-sm">No products found.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== RIGHT: Cart ===== -->
+  <div class="w-80 xl:w-96 flex flex-col bg-white flex-shrink-0">
+
+    <!-- Header -->
+    <div class="px-5 pt-4 pb-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-cart-shopping" style="color:var(--theme)"></i>
+        <span class="font-semibold text-slate-800">Active Order</span>
+        <span id="cartCount" class="text-xs bg-slate-100 text-slate-500 font-semibold px-2 py-0.5 rounded-full">0</span>
+      </div>
+      <button onclick="clearCart()" class="text-xs text-slate-400 hover:text-rose-500 font-medium transition">Clear</button>
+    </div>
+
+    <!-- Customer -->
+    <div class="px-5 py-2.5 border-b border-slate-100 flex-shrink-0">
+      <select id="customerSelect" class="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 text-slate-600">
+        <option value="">👤 Walk-in Customer</option>
+        {% for c in customers %}
+        <option value="{{ c.id }}">{{ c.name }} — {{ c.phone }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Cart items -->
+    <div id="cartItems" class="flex-1 overflow-y-auto px-4 py-3">
+      <div id="cartEmpty" class="flex flex-col items-center justify-center h-full text-center py-8">
+        <i class="fa-solid fa-cart-shopping text-slate-200 text-5xl mb-4"></i>
+        <p class="text-slate-400 text-sm font-medium">Cart is empty</p>
+        <p class="text-slate-300 text-xs mt-1">Click a product to add it</p>
+      </div>
+    </div>
+
+    <!-- Totals -->
+    <div class="border-t border-slate-100 px-5 pt-3 pb-2 flex-shrink-0 space-y-1.5 text-sm">
+      <div class="flex justify-between text-slate-500">
+        <span>Subtotal</span><span id="subtotalDisplay">KES 0.00</span>
+      </div>
+      <div class="flex justify-between text-slate-500">
+        <span>Total Cost</span><span id="costDisplay" class="text-slate-400">KES 0.00</span>
+      </div>
+      <div class="flex justify-between items-center text-slate-500">
+        <span>Discount</span>
+        <div class="flex items-center gap-1">
+          <span class="text-xs text-slate-400">KES</span>
+          <input type="number" id="discountInput" value="0" min="0" step="1"
+                 class="w-20 text-right text-sm border border-slate-200 rounded-lg px-2 py-1"/>
+        </div>
+      </div>
+      <div class="flex justify-between font-bold text-slate-800 text-base pt-1.5 border-t border-slate-100">
+        <span>Total</span>
+        <span id="totalDisplay" style="color:var(--theme)" class="text-xl">KES 0.00</span>
+      </div>
+      <!-- Profit/Loss indicator -->
+      <div id="profitRow" class="hidden flex justify-between text-xs font-semibold pt-1 pb-0.5 rounded-lg px-2 py-1">
+        <span id="profitLabel">Profit</span>
+        <span id="profitDisplay">KES 0.00</span>
+      </div>
+    </div>
+
+    <!-- Payment -->
+    <div class="px-5 pb-2 flex-shrink-0">
+      <div class="flex gap-2 mb-2">
+        <button data-method="cash" onclick="setPayment('cash')"
+                class="pay-btn flex-1 py-2 rounded-xl text-sm font-semibold border transition"
+                style="border-color:var(--theme);background:var(--theme-light,#E6FAF9);color:var(--theme)">
+          <i class="fa-solid fa-money-bill-wave mr-1"></i>Cash
+        </button>
+        <button data-method="mpesa" onclick="setPayment('mpesa')"
+                class="pay-btn flex-1 py-2 rounded-xl text-sm font-semibold border border-slate-200 text-slate-500 hover:bg-slate-50 transition">
+          <i class="fa-solid fa-mobile-screen-button mr-1"></i>M-Pesa
+        </button>
+      </div>
+      <div id="mpesaRefWrap" class="hidden mb-2">
+        <input type="text" id="mpesaRef" placeholder="M-Pesa Reference..."
+               class="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 bg-slate-50"/>
+      </div>
+    </div>
+
+    <!-- Checkout -->
+    <div class="px-5 pb-5 flex-shrink-0">
+      <button id="checkoutBtn" onclick="completeSale()"
+              class="w-full py-3.5 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              style="background:var(--theme)">
+        <i class="fa-solid fa-check"></i> Complete Sale
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Variant Modal ===== -->
+<div id="variantModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  <div class="bg-white rounded-2xl shadow-modal w-full max-w-sm p-6" style="animation:scaleIn .2s ease">
+    <div class="flex items-start gap-4 mb-4">
+      <div id="variantProductImg" class="w-16 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100"></div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h3 class="font-bold text-slate-800 text-base leading-tight" id="variantProductName"></h3>
+            <p class="text-sm font-semibold mt-0.5" style="color:var(--theme)" id="variantProductPrice"></p>
+            <p class="text-xs text-slate-400 mt-0.5" id="variantProductCost"></p>
+          </div>
+          <button onclick="closeVariantModal()" class="text-slate-400 hover:text-slate-600">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">Choose size / colour</p>
+      </div>
+    </div>
+    <div id="variantList" class="space-y-2 max-h-56 overflow-y-auto mb-4"></div>
+    <div class="flex gap-2">
+      <button onclick="closeVariantModal()"
+              class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">Cancel</button>
+      <button onclick="addSelectedVariant()"
+              class="flex-1 py-2.5 text-white rounded-xl text-sm font-bold"
+              style="background:var(--theme)">Add to Cart</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Receipt Modal ===== -->
+<div id="receiptModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  <div class="bg-white rounded-2xl shadow-modal w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" style="animation:scaleIn .2s ease">
+    <div class="text-center mb-5">
+      <div class="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+        <i class="fa-solid fa-check text-emerald-600 text-2xl"></i>
+      </div>
+      <h3 class="font-bold text-slate-800 text-xl">Sale Complete!</h3>
+      <p class="text-slate-500 text-sm mt-1" id="receiptOrderNum"></p>
+    </div>
+    <div id="receiptBody" class="bg-slate-50 rounded-xl p-4 mb-5 text-sm space-y-2"></div>
+    <div class="flex flex-col gap-2">
+      <div class="flex gap-2">
+        <button onclick="window.open('/pos/receipt/'+currentSaleId,'_blank')"
+                class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">
+          <i class="fa-solid fa-print mr-1.5"></i>Print
+        </button>
+        <button onclick="window.location.href='/pos/receipt/'+currentSaleId+'/pdf'"
+                class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">
+          <i class="fa-solid fa-file-pdf mr-1.5"></i>PDF
+        </button>
+      </div>
+      <button onclick="startNewSale()" class="w-full py-2.5 text-white rounded-xl text-sm font-bold" style="background:var(--theme)">
+        New Sale
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ===== POS State =====
+let cart = [];
+let products = [];
+let currentPayment = 'cash';
+let currentProductForVariant = null;
+let selectedVariantId = null;
+let currentSaleId = null;
+
+// ===== Init =====
+async function loadProducts(query = '', catId = '') {
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = `<div class="col-span-4 flex items-center justify-center py-20"><i class="fa-solid fa-spinner fa-spin text-2xl" style="color:var(--theme)"></i></div>`;
+  try {
+    const url = `/pos/products?q=${encodeURIComponent(query)}&category=${catId}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    products = await res.json();
+    renderGrid(products);
+  } catch(e) {
+    document.getElementById('productGrid').innerHTML =
+      `<div class="col-span-4 text-center py-10 text-red-400 text-sm">Failed to load products: ${e.message}</div>`;
+  }
+}
+
+function renderGrid(prods) {
+  const grid   = document.getElementById('productGrid');
+  const noProds = document.getElementById('noProducts');
+  grid.innerHTML = '';
+
+  if (!prods.length) {
+    noProds.style.display = 'flex';
+    return;
+  }
+  noProds.style.display = 'none';
+
+  prods.forEach(function(p) {
+    var hasStock = p.total_stock > 0;
+    var isLow    = p.total_stock > 0 && p.total_stock <= 5;
+
+    // ---- card shell ----
+    var card = document.createElement('div');
+    card.className = 'product-card bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-card';
+    if (!hasStock) card.style.opacity = '0.5';
+
+    // ---- image wrapper (3:4 ratio via padding-bottom trick) ----
+    var imgWrap = document.createElement('div');
+    imgWrap.style.cssText = 'position:relative;width:100%;padding-bottom:133%;overflow:hidden;';
+
+    // inner absolute fill
+    var imgInner = document.createElement('div');
+    imgInner.style.cssText = 'position:absolute;inset:0;';
+
+    if (p.image) {
+      var img = document.createElement('img');
+      img.src = p.image;
+      img.alt = p.name;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s;';
+      img.className = 'product-img';
+      img.onerror = function() {
+        imgInner.innerHTML = '<div style="width:100%;height:100%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-shirt" style="color:#cbd5e1;font-size:2rem;"></i></div>';
+      };
+      imgInner.appendChild(img);
+    } else {
+      imgInner.innerHTML = '<div style="width:100%;height:100%;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-shirt" style="color:#cbd5e1;font-size:2rem;"></i></div>';
+    }
+    imgWrap.appendChild(imgInner);
+
+    // category badge
+    var catBadge = document.createElement('span');
+    catBadge.style.cssText = 'position:absolute;top:8px;left:8px;padding:2px 8px;background:rgba(255,255,255,.92);color:#64748b;font-size:10px;font-weight:600;border-radius:999px;box-shadow:0 1px 3px rgba(0,0,0,.08);z-index:1;';
+    catBadge.textContent = p.category;
+    imgWrap.appendChild(catBadge);
+
+    // stock badge
+    if (!hasStock) {
+      var badge = document.createElement('span');
+      badge.style.cssText = 'position:absolute;top:8px;right:8px;padding:2px 8px;background:rgba(30,41,59,.75);color:#fff;font-size:10px;font-weight:700;border-radius:999px;z-index:1;';
+      badge.textContent = 'Out of stock';
+      imgWrap.appendChild(badge);
+    } else if (isLow) {
+      var badge = document.createElement('span');
+      badge.style.cssText = 'position:absolute;top:8px;right:8px;padding:2px 8px;background:#f59e0b;color:#fff;font-size:10px;font-weight:700;border-radius:999px;z-index:1;';
+      badge.textContent = 'Low: ' + p.total_stock;
+      imgWrap.appendChild(badge);
+    }
+
+    card.appendChild(imgWrap);
+
+    // ---- info area ----
+    var info = document.createElement('div');
+    info.className = 'p-3';
+
+    var name = document.createElement('p');
+    name.className = 'text-sm font-semibold text-slate-800 leading-tight truncate';
+    name.textContent = p.name;
+    info.appendChild(name);
+
+    var row = document.createElement('div');
+    row.className = 'flex items-center justify-between mt-1';
+
+    var price = document.createElement('span');
+    price.className = 'font-bold text-slate-800 text-sm';
+    price.textContent = 'KES ' + p.price.toLocaleString('en', {minimumFractionDigits: 2});
+    row.appendChild(price);
+
+    // color dots
+    var dots = document.createElement('div');
+    dots.style.cssText = 'display:flex;gap:3px;align-items:center;';
+    (p.colors || []).slice(0, 4).forEach(function(c) {
+      var dot = document.createElement('span');
+      dot.className = 'color-dot';
+      dot.style.background = c;
+      dot.title = c;
+      dots.appendChild(dot);
+    });
+    row.appendChild(dots);
+    info.appendChild(row);
+    card.appendChild(info);
+
+    if (hasStock) {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', (function(prod) {
+        return function() { handleProductClick(prod); };
+      })(p));
+    }
+
+    grid.appendChild(card);
+  });
+}
+
+function handleProductClick(product) {
+  if (product.variants.length === 0) { showToast('No stock available for this product.', 'warning'); return; }
+  if (product.variants.length === 1) {
+    addToCart(product, product.variants[0]);
+    return;
+  }
+  openVariantModal(product);
+}
+
+// ===== Variant Modal =====
+function openVariantModal(product) {
+  currentProductForVariant = product;
+  selectedVariantId = null;
+  document.getElementById('variantProductName').textContent = product.name;
+  document.getElementById('variantProductPrice').textContent = `KES ${product.price.toFixed(2)}`;
+
+  // Show product image in modal if available
+  const imgWrap = document.getElementById('variantProductImg');
+  if (imgWrap) {
+    imgWrap.innerHTML = product.image
+      ? `<img src="${product.image}" class="w-full h-full object-cover rounded-xl" alt="${product.name}">`
+      : `<div class="w-full h-full bg-slate-100 rounded-xl flex items-center justify-center"><i class="fa-solid fa-shirt text-slate-300 text-3xl"></i></div>`;
+  }
+
+  const list = document.getElementById('variantList');
+  list.innerHTML = product.variants.map(v => `
+    <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition has-[:checked]:border-[var(--theme)] has-[:checked]:bg-slate-50">
+      <input type="radio" name="variantChoice" value="${v.id}" class="accent-[#00D4C8]"/>
+      <div class="flex-1 flex items-center gap-2">
+        ${v.color ? `<span class="w-4 h-4 rounded-full border border-slate-200 flex-shrink-0" style="background:${v.color}"></span>` : ''}
+        <span class="text-sm font-semibold text-slate-700">${[v.size, v.color ? '' : ''].filter(Boolean).join(' ')}</span>
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${v.stock <= 5 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">${v.stock} left</span>
+      </div>
+    </label>`).join('');
+  list.querySelectorAll('input[type=radio]').forEach(r => {
+    r.addEventListener('change', () => { selectedVariantId = parseInt(r.value); });
+  });
+  document.getElementById('variantModal').classList.remove('hidden');
+}
+
+function closeVariantModal() {
+  document.getElementById('variantModal').classList.add('hidden');
+  currentProductForVariant = null;
+  selectedVariantId = null;
+}
+
+function addSelectedVariant() {
+  if (!selectedVariantId) { showToast('Please select a variant.', 'warning'); return; }
+  const variant = currentProductForVariant.variants.find(v => v.id === selectedVariantId);
+  if (!variant) return;
+  addToCart(currentProductForVariant, variant);
+  closeVariantModal();
+}
+
+// ===== Cart Logic =====
+function addToCart(product, variant) {
+  const key = `${product.id}-${variant.id}`;
+  const existing = cart.find(i => i.key === key);
+  if (existing) {
+    if (existing.qty >= variant.stock) { showToast('Insufficient stock.', 'warning'); return; }
+    existing.qty++;
+  } else {
+    cart.push({
+      key,
+      product_id: product.id,
+      variant_id: variant.id,
+      name: product.name,
+      price: product.price,
+      size: variant.size,
+      color: variant.color,
+      max_stock: variant.stock,
+      qty: 1
+    });
+  }
+  renderCart();
+  showToast(`${product.name} added to cart!`);
+}
+
+function removeFromCart(key) {
+  cart = cart.filter(i => i.key !== key);
+  renderCart();
+}
+
+function updateQty(key, delta) {
+  const item = cart.find(i => i.key === key);
+  if (!item) return;
+  item.qty = Math.max(1, Math.min(item.qty + delta, item.max_stock));
+  renderCart();
+}
+
+function clearCart() {
+  cart = [];
+  document.getElementById('discountInput').value = 0;
+  renderCart();
+}
+
+function renderCart() {
+  const container = document.getElementById('cartItems');
+  const empty = document.getElementById('cartEmpty');
+  const countEl = document.getElementById('cartCount');
+  const totalItems = cart.reduce((s, i) => s + i.qty, 0);
+  countEl.textContent = `${totalItems} item${totalItems !== 1 ? 's' : ''}`;
+
+  if (!cart.length) {
+    empty.style.display = 'flex';
+    // clear old rows
+    container.querySelectorAll('.cart-item-row').forEach(r => r.remove());
+    updateTotals();
+    return;
+  }
+  empty.style.display = 'none';
+
+  // Re-render rows
+  container.querySelectorAll('.cart-item-row').forEach(r => r.remove());
+  cart.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'cart-item-row border border-slate-100 rounded-xl p-3 mb-2 bg-white';
+    div.innerHTML = `
+      <div class="flex items-start gap-2">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-slate-800 truncate">${item.name}</p>
+          <p class="text-xs text-slate-400">${item.size}${item.color ? ' · <span style="color:${item.color}">●</span>' : ''}</p>
+          <p class="text-sm font-bold text-[#00D4C8] mt-1">KES ${(item.price * item.qty).toFixed(2)}</p>
+        </div>
+        <button onclick="removeFromCart('${item.key}')" class="text-slate-300 hover:text-rose-500 transition mt-0.5">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="flex items-center gap-2 mt-2">
+        <button onclick="updateQty('${item.key}', -1)"
+                class="w-7 h-7 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 transition flex items-center justify-center text-xs">
+          <i class="fa-solid fa-minus"></i>
+        </button>
+        <span class="text-sm font-semibold text-slate-800 min-w-[20px] text-center">${item.qty}</span>
+        <button onclick="updateQty('${item.key}', 1)"
+                class="w-7 h-7 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 transition flex items-center justify-center text-xs">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+        <span class="ml-auto text-xs text-slate-400">× KES ${item.price.toFixed(2)}</span>
+      </div>`;
+    container.appendChild(div);
+  });
+  updateTotals();
+}
+
+function updateTotals() {
+  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const discount = parseFloat(document.getElementById('discountInput').value) || 0;
+  const total = Math.max(subtotal - discount, 0);
+  document.getElementById('subtotalDisplay').textContent = `KES ${subtotal.toFixed(2)}`;
+  document.getElementById('totalDisplay').textContent = `KES ${total.toFixed(2)}`;
+}
+
+document.getElementById('discountInput').addEventListener('input', updateTotals);
+
+// ===== Payment =====
+function setPayment(method) {
+  currentPayment = method;
+  document.querySelectorAll('.pay-btn').forEach(b => {
+    b.style.borderColor = '';
+    b.style.background = '';
+    b.style.color = '';
+    b.className = 'pay-btn flex-1 py-2 rounded-xl text-sm font-semibold border border-slate-200 text-slate-500 hover:bg-slate-50 transition';
+  });
+  const active = document.querySelector(`[data-method="${method}"]`);
+  active.className = 'pay-btn flex-1 py-2 rounded-xl text-sm font-semibold border transition';
+  active.style.borderColor = '#00D4C8';
+  active.style.background = '#E6FAF9';
+  active.style.color = '#00D4C8';
+  document.getElementById('mpesaRefWrap').classList.toggle('hidden', method !== 'mpesa');
+}
+
+// ===== Checkout =====
+async function completeSale() {
+  if (!cart.length) { showToast('Add items to the cart first.', 'warning'); return; }
+  const btn = document.getElementById('checkoutBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Processing…';
+
+  const payload = {
+    cart: cart.map(i => ({
+      product_id: i.product_id,
+      variant_id: i.variant_id,
+      quantity: i.qty,
+      size: i.size,
+      color: i.color
+    })),
+    customer_id: document.getElementById('customerSelect').value || null,
+    payment_method: currentPayment,
+    mpesa_ref: document.getElementById('mpesaRef')?.value || '',
+    discount: parseFloat(document.getElementById('discountInput').value) || 0
+  };
+
+  try {
+    const res = await fetch('/pos/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      currentSaleId = data.sale_id;
+      showReceiptModal(data);
+      clearCart();
+    } else {
+      showToast(data.message, 'error');
+    }
+  } catch (e) {
+    showToast('Network error. Please try again.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> Complete Sale';
+  }
+}
+
+function showReceiptModal(data) {
+  document.getElementById('receiptOrderNum').textContent = `Order ${data.order_number}`;
+  document.getElementById('receiptBody').innerHTML = `
+    <div class="flex justify-between py-1 border-b border-slate-200 mb-2">
+      <span class="text-slate-500">Payment</span>
+      <span class="font-semibold capitalize">${currentPayment}</span>
+    </div>
+    <div class="flex justify-between py-1">
+      <span class="text-slate-500 font-semibold">Total Paid</span>
+      <span class="font-bold text-[#00D4C8] text-lg">KES ${data.total.toFixed(2)}</span>
+    </div>`;
+  document.getElementById('receiptModal').classList.remove('hidden');
+}
+
+function startNewSale() {
+  document.getElementById('receiptModal').classList.add('hidden');
+  currentSaleId = null;
+}
+
+// ===== Category filter =====
+document.querySelectorAll('.cat-pill').forEach(pill => {
+  pill.addEventListener('click', function() {
+    document.querySelectorAll('.cat-pill').forEach(p => {
+      p.classList.remove('active');
+      p.style.background = '';
+      p.style.color = '';
+      p.style.borderColor = '';
+    });
+    this.classList.add('active');
+    loadProducts(document.getElementById('productSearch').value, this.dataset.cat);
+  });
+});
+
+// ===== Search =====
+let searchTimer;
+document.getElementById('productSearch').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  const activeCat = document.querySelector('.cat-pill.active')?.dataset.cat || '';
+  searchTimer = setTimeout(() => loadProducts(this.value, activeCat), 250);
+});
+
+// Close variant modal on backdrop click
+document.getElementById('variantModal').addEventListener('click', function(e) {
+  if (e.target === this) closeVariantModal();
+});
+
+// Init
+loadProducts();
+</script>
+{% endblock %}

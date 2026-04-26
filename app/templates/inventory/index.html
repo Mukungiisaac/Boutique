@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Inventory Management{% endblock %}
+{% block page_title %}Inventory Management{% endblock %}
+
+{% block app_content %}
+<div class="p-6 space-y-6">
+
+  <!-- Stats row -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
+      <div class="flex items-center justify-between mb-2">
+        <div class="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-boxes-stacked text-[#00D4C8] text-sm"></i>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 font-medium">Total Stock Units</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ "{:,}".format(total_units) }}</p>
+      <p class="text-xs text-emerald-500 mt-0.5 font-medium">+4.2% vs last month</p>
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
+      <div class="flex items-center justify-between mb-2">
+        <div class="w-9 h-9 bg-violet-50 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-tag text-violet-500 text-sm"></i>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 font-medium">Inventory Value</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">KES {{ "{:,.0f}".format(inventory_value) }}</p>
+      <p class="text-xs text-emerald-500 mt-0.5 font-medium">+12% vs last month</p>
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
+      <div class="flex items-center justify-between mb-2">
+        <div class="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm"></i>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 font-medium">Low Stock Items</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ low_stock_count }}</p>
+      <p class="text-xs text-amber-500 mt-0.5 font-medium">Needs attention</p>
+    </div>
+    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-card">
+      <div class="flex items-center justify-between mb-2">
+        <div class="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-clock-rotate-left text-slate-500 text-sm"></i>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 font-medium">Total Products</p>
+      <p class="text-2xl font-bold text-slate-800 mt-1">{{ products.total }}</p>
+      <p class="text-xs text-slate-400 mt-0.5 font-medium">Active items</p>
+    </div>
+  </div>
+
+  <!-- Stock Table -->
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-card">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div>
+        <h3 class="font-semibold text-slate-800">Stock Inventory</h3>
+        <p class="text-xs text-slate-400 mt-0.5">Track and manage your boutique's product catalog.</p>
+      </div>
+      <div class="flex gap-3">
+        <a href="{{ url_for('inventory.export_csv') }}"
+           class="flex items-center gap-2 px-4 py-2 border border-slate-200 text-sm text-slate-600 rounded-xl hover:bg-slate-50 transition font-medium">
+          <i class="fa-solid fa-download text-xs"></i> Export
+        </a>
+        <a href="{{ url_for('inventory.add_product') }}"
+           class="flex items-center gap-2 px-4 py-2 bg-[#00D4C8] hover:bg-[#00B5AA] text-white text-sm rounded-xl transition font-semibold shadow-sm shadow-teal-100">
+          <i class="fa-solid fa-plus text-xs"></i> Add New Product
+        </a>
+      </div>
+    </div>
+
+    <!-- Search + Filter -->
+    <div class="px-6 py-4 border-b border-slate-100 flex gap-3">
+      <form method="GET" action="{{ url_for('inventory.index') }}" class="flex gap-3 flex-1">
+        <div class="flex-1 relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input type="text" name="search" value="{{ search }}"
+                 placeholder="Search by product name, SKU, or category..."
+                 class="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+        <select name="category" class="text-sm border border-slate-200 rounded-xl px-3 py-2.5 bg-slate-50 focus:bg-white min-w-[160px]">
+          <option value="">All Categories</option>
+          {% for cat in categories %}
+          <option value="{{ cat.id }}" {% if selected_category == cat.id|string %}selected{% endif %}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-sm font-medium transition">
+          <i class="fa-solid fa-filter text-xs"></i>
+        </button>
+      </form>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-slate-400 uppercase tracking-wide border-b border-slate-100">
+            <th class="px-6 py-3 text-left font-medium w-8"><input type="checkbox" id="selectAll" class="accent-[#00D4C8]"/></th>
+            <th class="px-4 py-3 text-left font-medium">Product</th>
+            <th class="px-4 py-3 text-left font-medium">Category</th>
+            <th class="px-4 py-3 text-left font-medium">SKU</th>
+            <th class="px-4 py-3 text-left font-medium">Price</th>
+            <th class="px-4 py-3 text-left font-medium">Stock Level</th>
+            <th class="px-4 py-3 text-left font-medium">Status</th>
+            <th class="px-4 py-3 text-left font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          {% for product in products.items %}
+          <tr class="hover:bg-slate-50 transition group" id="row-{{ product.id }}">
+            <td class="px-6 py-4">
+              <input type="checkbox" class="accent-[#00D4C8] row-checkbox"/>
+            </td>
+            <td class="px-4 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                  {% if product.image %}
+                  <img src="{{ product.image }}" alt="{{ product.name }}" class="w-full h-full object-cover"/>
+                  {% else %}
+                  <i class="fa-solid fa-shirt text-slate-300 text-sm"></i>
+                  {% endif %}
+                </div>
+                <div>
+                  <p class="font-semibold text-slate-800">{{ product.name }}</p>
+                  <p class="text-xs text-slate-400">{{ product.sku }}</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-4">
+              <span class="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-lg">
+                {{ product.category.name if product.category else '—' }}
+              </span>
+            </td>
+            <td class="px-4 py-4 text-slate-500 font-mono text-xs">{{ product.sku }}</td>
+            <td class="px-4 py-4 font-semibold text-slate-800">KES {{ "{:,.2f}".format(product.price) }}</td>
+            <td class="px-4 py-4">
+              <span class="font-bold text-lg {% if product.total_stock == 0 %}text-rose-500{% elif product.total_stock <= 5 %}text-amber-500{% else %}text-slate-800{% endif %}">
+                {{ product.total_stock }}
+              </span>
+            </td>
+            <td class="px-4 py-4">
+              {% if product.status == 'out_of_stock' %}
+              <span class="px-2.5 py-1 bg-rose-100 text-rose-600 text-xs font-semibold rounded-lg">Out of Stock</span>
+              {% elif product.status == 'low_stock' %}
+              <span class="px-2.5 py-1 bg-amber-100 text-amber-600 text-xs font-semibold rounded-lg">Low Stock</span>
+              {% else %}
+              <span class="px-2.5 py-1 bg-emerald-100 text-emerald-600 text-xs font-semibold rounded-lg">In Stock</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-4">
+              <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                <a href="{{ url_for('inventory.edit_product', product_id=product.id) }}"
+                   class="p-1.5 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-500 transition" title="Edit">
+                  <i class="fa-solid fa-pen text-xs"></i>
+                </a>
+                <button onclick="deleteProduct({{ product.id }}, '{{ product.name }}')"
+                        class="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition" title="Delete">
+                  <i class="fa-solid fa-trash text-xs"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="px-6 py-16 text-center text-slate-400">
+            <i class="fa-solid fa-box-open text-4xl mb-3 block text-slate-200"></i>
+            No products found.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if products.pages > 1 %}
+    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+      <p class="text-sm text-slate-500">
+        Showing <strong>{{ ((products.page - 1) * 10) + 1 }}–{{ [products.page * 10, products.total] | min }}</strong>
+        of <strong>{{ products.total }}</strong> products
+      </p>
+      <div class="flex items-center gap-1.5">
+        {% if products.has_prev %}
+        <a href="{{ url_for('inventory.index', page=products.prev_num, search=search, category=selected_category) }}"
+           class="px-3 py-1.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">Previous</a>
+        {% endif %}
+        {% for num in products.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
+          {% if num %}
+          <a href="{{ url_for('inventory.index', page=num, search=search, category=selected_category) }}"
+             class="px-3 py-1.5 rounded-lg text-sm font-medium transition
+                    {% if num == products.page %}bg-[#00D4C8] text-white{% else %}border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
+            {{ num }}
+          </a>
+          {% else %}
+          <span class="px-1 text-slate-400">…</span>
+          {% endif %}
+        {% endfor %}
+        {% if products.has_next %}
+        <a href="{{ url_for('inventory.index', page=products.next_num, search=search, category=selected_category) }}"
+           class="px-3 py-1.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition">Next</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Select all checkbox
+document.getElementById('selectAll')?.addEventListener('change', function() {
+  document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = this.checked);
+});
+
+// Delete product
+async function deleteProduct(id, name) {
+  if (!confirm(`Remove "${name}" from inventory?`)) return;
+  try {
+    const res = await fetch(`/inventory/delete/${id}`, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById(`row-${id}`)?.remove();
+      showToast(data.message);
+    } else {
+      showToast(data.message, 'error');
+    }
+  } catch(e) {
+    showToast('Error deleting product.', 'error');
+  }
+}
+</script>
+{% endblock %}

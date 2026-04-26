@@ -1,0 +1,533 @@
+{% extends "base.html" %}
+{% block title %}Customer Management{% endblock %}
+{% block page_title %}Customer Management{% endblock %}
+
+{% block extra_head %}
+<style>
+  .tier-vip    { background:#7c3aed; color:#fff; }
+  .tier-gold   { background:#f59e0b; color:#fff; }
+  .tier-silver { background:#94a3b8; color:#fff; }
+  .tier-bronze { background:#b45309; color:#fff; }
+  .customer-card.selected { background: #E6FAF9; border-color: #00D4C8; }
+</style>
+{% endblock %}
+
+{% block app_content %}
+<div class="flex h-full overflow-hidden">
+
+  <!-- LEFT: Directory panel -->
+  <div class="w-80 flex-shrink-0 border-r border-slate-100 flex flex-col bg-white">
+    <!-- Header -->
+    <div class="px-5 pt-5 pb-3 border-b border-slate-100 flex-shrink-0">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-slate-800">Directory</h3>
+        <button onclick="openAddModal()"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-[#00D4C8] text-white text-xs font-semibold rounded-lg hover:bg-[#00B5AA] transition">
+          <i class="fa-solid fa-user-plus text-xs"></i> New Client
+        </button>
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+        <input type="text" id="customerSearch" placeholder="Search name or phone..."
+               class="w-full pl-8 pr-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:bg-white transition-all"/>
+      </div>
+    </div>
+
+    <!-- Customer list -->
+    <div class="flex-1 overflow-y-auto divide-y divide-slate-50" id="customerList">
+      {% for customer in customers %}
+      <div class="customer-card px-4 py-3.5 cursor-pointer hover:bg-slate-50 transition border border-transparent
+                  {% if selected_customer and selected_customer.id == customer.id %}selected{% endif %}"
+           data-id="{{ customer.id }}" onclick="loadCustomer({{ customer.id }}, this)">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {% if customer.photo %}
+            <img src="{{ url_for('static', filename='uploads/' + customer.photo) }}" class="w-full h-full object-cover" alt="{{ customer.name }}">
+            {% else %}
+            <span class="text-slate-600 font-semibold text-sm">{{ customer.name[0] | upper }}</span>
+            {% endif %}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-slate-800 truncate">{{ customer.name }}</p>
+            <p class="text-xs text-slate-400">{{ customer.phone }}</p>
+          </div>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full tier-{{ customer.tier | lower }}">
+            {{ customer.tier }}
+          </span>
+          <i class="fa-solid fa-chevron-right text-slate-300 text-xs"></i>
+        </div>
+      </div>
+      {% else %}
+      <div class="px-5 py-10 text-center text-slate-400 text-sm">
+        <i class="fa-solid fa-users text-4xl text-slate-200 block mb-3"></i>
+        No customers found.
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- RIGHT: Customer detail -->
+  <div class="flex-1 overflow-y-auto bg-slate-50" id="customerDetail">
+    <div class="flex items-center justify-center h-full">
+      <div class="text-center">
+        <i class="fa-solid fa-user-circle text-6xl text-slate-200 mb-4"></i>
+        <p class="text-slate-400 font-medium">Select a customer to view details</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Add Customer Modal -->
+<div id="addCustomerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop bg-black/40 p-4">
+  <div class="modal-content bg-white rounded-2xl shadow-modal w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-bold text-slate-800 text-base">New Customer</h3>
+      <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600 transition">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+    <form id="addCustomerForm" enctype="multipart/form-data">
+      <div class="space-y-4">
+        <!-- Photo upload -->
+        <div class="flex flex-col items-center gap-3">
+          <div id="addPhotoPreview"
+               class="w-20 h-20 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-[#00D4C8] transition"
+               onclick="document.getElementById('newPhoto').click()">
+            <i class="fa-solid fa-camera text-slate-400 text-xl" id="addPhotoIcon"></i>
+          </div>
+          <input type="file" id="newPhoto" name="photo" accept="image/*" class="hidden" onchange="previewPhoto(this, 'addPhotoPreview', 'addPhotoIcon')">
+          <p class="text-xs text-slate-400">Click to upload photo (optional)</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Full Name *</label>
+          <input type="text" id="newName" name="name" placeholder="e.g. Eleanor Vance"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number *</label>
+          <input type="tel" id="newPhone" name="phone" placeholder="+254 7XX XXX XXX"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email (optional)</label>
+          <input type="email" id="newEmail" name="email" placeholder="email@example.com"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Preferred Size</label>
+            <select id="newSize" name="preferred_size" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50">
+              <option value="">—</option>
+              <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Marketing Opt-in</label>
+            <select id="newMarketing" name="marketing_optin" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Staff Note</label>
+          <textarea id="newNote" name="staff_note" rows="2" placeholder="Private notes about customer preferences..."
+                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 resize-none"></textarea>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button type="button" onclick="closeAddModal()"
+                class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+          Cancel
+        </button>
+        <button type="button" onclick="saveNewCustomer()"
+                class="flex-1 py-2.5 bg-[#00D4C8] hover:bg-[#00B5AA] text-white rounded-xl text-sm font-bold transition">
+          Add Customer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Customer Modal -->
+<div id="editCustomerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop bg-black/40 p-4">
+  <div class="modal-content bg-white rounded-2xl shadow-modal w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-bold text-slate-800 text-base">Edit Profile</h3>
+      <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 transition">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+    <form id="editCustomerForm" enctype="multipart/form-data">
+      <input type="hidden" id="editCustomerId">
+      <div class="space-y-4">
+        <!-- Photo upload -->
+        <div class="flex flex-col items-center gap-3">
+          <div id="editPhotoPreview"
+               class="w-20 h-20 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-[#00D4C8] transition"
+               onclick="document.getElementById('editPhoto').click()">
+            <i class="fa-solid fa-camera text-slate-400 text-xl" id="editPhotoIcon"></i>
+          </div>
+          <input type="file" id="editPhoto" name="photo" accept="image/*" class="hidden" onchange="previewPhoto(this, 'editPhotoPreview', 'editPhotoIcon')">
+          <p class="text-xs text-slate-400">Click to change photo</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Full Name *</label>
+          <input type="text" id="editName" name="name" placeholder="Full name"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number *</label>
+          <input type="tel" id="editPhone" name="phone" placeholder="+254 7XX XXX XXX"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Email</label>
+          <input type="email" id="editEmail" name="email" placeholder="email@example.com"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Tier</label>
+            <select id="editTier" name="tier" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50">
+              <option value="Bronze">Bronze</option>
+              <option value="Silver">Silver</option>
+              <option value="Gold">Gold</option>
+              <option value="VIP">VIP</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Preferred Size</label>
+            <select id="editSize" name="preferred_size" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50">
+              <option value="">—</option>
+              <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Style Tags</label>
+          <input type="text" id="editStyleTags" name="style_tags" placeholder="e.g. Dresses, Accessories"
+                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Store Credit (KES)</label>
+            <input type="number" id="editStoreCredit" name="store_credit" min="0" step="0.01"
+                   class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1.5">Marketing Opt-in</label>
+            <select id="editMarketing" name="marketing_optin" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Staff Note</label>
+          <textarea id="editNote" name="staff_note" rows="2" placeholder="Private notes..."
+                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 resize-none"></textarea>
+        </div>
+      </div>
+      <div class="flex gap-3 mt-6">
+        <button type="button" onclick="closeEditModal()"
+                class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">
+          Cancel
+        </button>
+        <button type="button" onclick="saveEditCustomer()"
+                class="flex-1 py-2.5 bg-[#00D4C8] hover:bg-[#00B5AA] text-white rounded-xl text-sm font-bold transition">
+          Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ===== Load customer detail via AJAX =====
+async function loadCustomer(id, cardEl) {
+  document.querySelectorAll('.customer-card').forEach(c => {
+    c.classList.remove('selected');
+    c.style.background = '';
+    c.style.borderColor = '';
+  });
+  cardEl.classList.add('selected');
+
+  const detailPanel = document.getElementById('customerDetail');
+  detailPanel.innerHTML = `<div class="flex items-center justify-center h-full"><i class="fa-solid fa-spinner fa-spin text-2xl text-[#00D4C8]"></i></div>`;
+
+  const res = await fetch(`/customers/${id}`);
+  if (!res.ok) { detailPanel.innerHTML = '<div class="p-6 text-red-500">Failed to load customer.</div>'; return; }
+  const c = await res.json();
+
+  const tierColors = { VIP: '#7c3aed', Gold: '#f59e0b', Silver: '#94a3b8', Bronze: '#b45309' };
+  const tierColor = tierColors[c.tier] || '#94a3b8';
+
+  const avatarHtml = c.photo
+    ? `<img src="/static/uploads/${c.photo}" class="w-full h-full object-cover" alt="${c.name}">`
+    : `<span class="text-white text-2xl font-bold">${c.name[0]}</span>`;
+
+  const avatarWrap = c.photo
+    ? `<div class="w-16 h-16 rounded-full overflow-hidden flex-shrink-0">${avatarHtml}</div>`
+    : `<div class="w-16 h-16 rounded-full bg-gradient-to-br from-[#00D4C8] to-[#00B5AA] flex items-center justify-center flex-shrink-0">${avatarHtml}</div>`;
+
+  const purchaseRows = c.purchases.map(p => `
+    <tr class="border-b border-slate-100 last:border-0">
+      <td class="py-2.5 text-slate-600">${p.date}</td>
+      <td class="py-2.5 text-slate-700 font-medium">${p.items}</td>
+      <td class="py-2.5 text-right font-semibold text-slate-800">KES ${p.amount.toLocaleString('en', {minimumFractionDigits:2})}</td>
+    </tr>`).join('');
+
+  detailPanel.innerHTML = `
+  <div class="p-6 space-y-5">
+    <!-- Header -->
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-card p-5 flex items-start gap-4">
+      ${avatarWrap}
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1 flex-wrap">
+          <h2 class="text-xl font-bold text-slate-800">${c.name}</h2>
+          <span class="text-xs font-bold px-2.5 py-0.5 rounded-full text-white" style="background:${tierColor}">${c.tier} Member</span>
+        </div>
+        <div class="flex flex-wrap gap-4 text-sm text-slate-500 mt-1">
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-phone text-xs"></i>${c.phone}</span>
+          ${c.email ? `<span class="flex items-center gap-1.5"><i class="fa-solid fa-envelope text-xs"></i>${c.email}</span>` : ''}
+          <span class="flex items-center gap-1.5"><i class="fa-solid fa-calendar text-xs"></i>Since ${c.since}</span>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="editCustomer(${c.id})"
+                class="px-4 py-2 bg-[#00D4C8] hover:bg-[#00B5AA] text-white text-sm font-semibold rounded-xl transition">
+          <i class="fa-solid fa-pen-to-square text-xs mr-1"></i> Edit Profile
+        </button>
+        <button onclick="deleteCustomer(${c.id})"
+                class="px-3 py-2 border border-rose-200 text-sm font-medium text-rose-500 rounded-xl hover:bg-rose-50 transition">
+          <i class="fa-solid fa-trash text-xs"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-4 gap-3">
+      <div class="bg-white rounded-xl border border-slate-100 p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide font-medium mb-1">Total Spend</p>
+        <p class="text-sm font-bold text-slate-800">KES ${c.total_spend.toLocaleString('en', {minimumFractionDigits:0})}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-100 p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide font-medium mb-1">Loyalty Points</p>
+        <p class="text-sm font-bold text-slate-800">${c.loyalty_points.toLocaleString()}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-100 p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide font-medium mb-1">Avg Order</p>
+        <p class="text-sm font-bold text-slate-800">KES ${c.avg_order_value.toLocaleString('en', {minimumFractionDigits:0})}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-100 p-4 text-center">
+        <p class="text-xs text-slate-400 uppercase tracking-wide font-medium mb-1">Last Purchase</p>
+        <p class="text-sm font-bold text-slate-800">${c.last_purchase}</p>
+      </div>
+    </div>
+
+    <!-- Purchases + Style Profile -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-semibold text-slate-800">Recent Purchases</h3>
+        </div>
+        ${c.purchases.length ? `
+        <table class="w-full text-sm">
+          <thead><tr class="text-xs text-slate-400 border-b border-slate-100">
+            <th class="pb-2 text-left font-medium">Date</th>
+            <th class="pb-2 text-left font-medium">Items</th>
+            <th class="pb-2 text-right font-medium">Amount</th>
+          </tr></thead>
+          <tbody>${purchaseRows}</tbody>
+        </table>` : '<p class="text-slate-400 text-sm text-center py-4">No purchases yet.</p>'}
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-card p-5">
+        <h3 class="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-heart text-rose-400 text-sm"></i> Style Profile
+        </h3>
+        <div class="mb-4">
+          ${c.style_tags.split(',').filter(Boolean).map(tag =>
+            `<span class="inline-block mr-1.5 mb-1.5 px-3 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">${tag.trim()}</span>`
+          ).join('')}
+        </div>
+        <div class="space-y-2.5 text-sm border-t border-slate-100 pt-3">
+          <div class="flex justify-between">
+            <span class="text-slate-500">Standard Size</span>
+            <span class="font-bold text-slate-800">${c.preferred_size || '—'}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Store Credit</span>
+            <span class="font-semibold text-[#00D4C8]">KES ${c.store_credit.toFixed(2)}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Marketing Opt-in</span>
+            <span class="font-semibold ${c.marketing_optin ? 'text-emerald-600' : 'text-rose-500'}">${c.marketing_optin ? 'ACTIVE' : 'INACTIVE'}</span>
+          </div>
+        </div>
+        ${c.staff_note ? `
+        <div class="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
+          <p class="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">Staff Internal Note</p>
+          <p class="text-xs text-amber-800 italic">"${c.staff_note}"</p>
+        </div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ===== Photo preview helper =====
+function previewPhoto(input, previewId, iconId) {
+  const preview = document.getElementById(previewId);
+  const icon = document.getElementById(iconId);
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover rounded-full">`;
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+// ===== Search filter =====
+document.getElementById('customerSearch').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.customer-card').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.display = text.includes(q) ? '' : 'none';
+  });
+});
+
+// ===== Add customer modal =====
+function openAddModal() {
+  document.getElementById('addCustomerForm').reset();
+  document.getElementById('addPhotoPreview').innerHTML = '<i class="fa-solid fa-camera text-slate-400 text-xl" id="addPhotoIcon"></i>';
+  document.getElementById('addCustomerModal').classList.remove('hidden');
+}
+function closeAddModal() { document.getElementById('addCustomerModal').classList.add('hidden'); }
+
+async function saveNewCustomer() {
+  const name = document.getElementById('newName').value.trim();
+  const phone = document.getElementById('newPhone').value.trim();
+  if (!name || !phone) { showToast('Name and phone are required.', 'warning'); return; }
+
+  const formData = new FormData();
+  formData.append('name', name);
+  formData.append('phone', phone);
+  formData.append('email', document.getElementById('newEmail').value.trim());
+  formData.append('preferred_size', document.getElementById('newSize').value);
+  formData.append('marketing_optin', document.getElementById('newMarketing').value);
+  formData.append('staff_note', document.getElementById('newNote').value.trim());
+  const photoFile = document.getElementById('newPhoto').files[0];
+  if (photoFile) formData.append('photo', photoFile);
+
+  const res = await fetch('/customers/add', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.success) {
+    showToast('Customer added!');
+    closeAddModal();
+    setTimeout(() => location.reload(), 800);
+  } else {
+    showToast(data.message, 'error');
+  }
+}
+
+// ===== Edit customer modal =====
+function closeEditModal() { document.getElementById('editCustomerModal').classList.add('hidden'); }
+
+async function editCustomer(id) {
+  const res = await fetch(`/customers/${id}`);
+  if (!res.ok) { showToast('Could not load customer data.', 'error'); return; }
+  const c = await res.json();
+
+  document.getElementById('editCustomerId').value = c.id;
+  document.getElementById('editName').value = c.name;
+  document.getElementById('editPhone').value = c.phone;
+  document.getElementById('editEmail').value = c.email || '';
+  document.getElementById('editTier').value = c.tier;
+  document.getElementById('editSize').value = c.preferred_size || '';
+  document.getElementById('editStyleTags').value = c.style_tags || '';
+  document.getElementById('editStoreCredit').value = c.store_credit || 0;
+  document.getElementById('editMarketing').value = c.marketing_optin ? 'true' : 'false';
+  document.getElementById('editNote').value = c.staff_note || '';
+
+  // Show existing photo or placeholder
+  const preview = document.getElementById('editPhotoPreview');
+  if (c.photo) {
+    preview.innerHTML = `<img src="/static/uploads/${c.photo}" class="w-full h-full object-cover rounded-full">`;
+  } else {
+    preview.innerHTML = '<i class="fa-solid fa-camera text-slate-400 text-xl" id="editPhotoIcon"></i>';
+  }
+  document.getElementById('editPhoto').value = '';
+
+  document.getElementById('editCustomerModal').classList.remove('hidden');
+}
+
+async function saveEditCustomer() {
+  const id = document.getElementById('editCustomerId').value;
+  const name = document.getElementById('editName').value.trim();
+  const phone = document.getElementById('editPhone').value.trim();
+  if (!name || !phone) { showToast('Name and phone are required.', 'warning'); return; }
+
+  const formData = new FormData();
+  formData.append('name', name);
+  formData.append('phone', phone);
+  formData.append('email', document.getElementById('editEmail').value.trim());
+  formData.append('tier', document.getElementById('editTier').value);
+  formData.append('preferred_size', document.getElementById('editSize').value);
+  formData.append('style_tags', document.getElementById('editStyleTags').value.trim());
+  formData.append('store_credit', document.getElementById('editStoreCredit').value || 0);
+  formData.append('marketing_optin', document.getElementById('editMarketing').value);
+  formData.append('staff_note', document.getElementById('editNote').value.trim());
+  const photoFile = document.getElementById('editPhoto').files[0];
+  if (photoFile) formData.append('photo', photoFile);
+
+  const res = await fetch(`/customers/edit/${id}`, { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.success) {
+    showToast('Profile updated!');
+    closeEditModal();
+    // Reload the detail panel
+    const card = document.querySelector(`.customer-card[data-id="${id}"]`);
+    if (card) loadCustomer(parseInt(id), card);
+    setTimeout(() => location.reload(), 900);
+  } else {
+    showToast(data.message, 'error');
+  }
+}
+
+async function deleteCustomer(id) {
+  if (!confirm('Remove this customer from the directory?')) return;
+  const res = await fetch(`/customers/delete/${id}`, { method: 'POST' });
+  const data = await res.json();
+  if (data.success) {
+    showToast('Customer removed.');
+    setTimeout(() => location.href = '/customers', 600);
+  } else {
+    showToast(data.message, 'error');
+  }
+}
+
+// Close modals on backdrop click
+document.getElementById('addCustomerModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddModal();
+});
+document.getElementById('editCustomerModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
+
+// Auto-load the initially selected customer on page load
+{% if selected_customer %}
+window.addEventListener('DOMContentLoaded', function() {
+  const initialCard = document.querySelector('.customer-card[data-id="{{ selected_customer.id }}"]');
+  if (initialCard) loadCustomer({{ selected_customer.id }}, initialCard);
+});
+{% endif %}
+</script>
+{% endblock %}

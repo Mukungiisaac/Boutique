@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In | Boutique POS</title>
+  <meta name="description" content="Secure login for Boutique POS management system."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    input:focus { outline: none; box-shadow: 0 0 0 3px rgba(0,212,200,.2); border-color: #00D4C8; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-100 via-white to-teal-50 flex flex-col items-center justify-center p-4">
+
+  <!-- Decorative blobs -->
+  <div class="fixed top-0 left-0 w-96 h-96 bg-teal-100 rounded-full -translate-x-1/2 -translate-y-1/2 opacity-40 blur-3xl pointer-events-none"></div>
+  <div class="fixed bottom-0 right-0 w-96 h-96 bg-cyan-100 rounded-full translate-x-1/2 translate-y-1/2 opacity-40 blur-3xl pointer-events-none"></div>
+
+  <!-- Logo -->
+  <div class="flex items-center gap-2.5 mb-8">
+    <div class="w-10 h-10 bg-[#00D4C8] rounded-xl flex items-center justify-center shadow-lg">
+      <i class="fa-solid fa-diamond text-white"></i>
+    </div>
+    <span class="text-2xl font-bold text-slate-800">Boutique <span class="text-[#00D4C8]">POS</span></span>
+  </div>
+
+  <!-- Card -->
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-[0_4px_40px_rgba(0,0,0,0.08)] p-8 border border-slate-100">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+        <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2
+          {% if cat == 'error' %}bg-rose-50 text-rose-700 border border-rose-200
+          {% elif cat == 'success' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+          {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+          <i class="fa-solid {% if cat == 'error' %}fa-circle-xmark{% else %}fa-circle-info{% endif %}"></i>
+          {{ msg }}
+        </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h1 class="text-2xl font-bold text-slate-800 mb-1">Welcome Back</h1>
+    <p class="text-slate-500 text-sm mb-7">Access your boutique management dashboard</p>
+
+    <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm" novalidate>
+      <!-- Email -->
+      <div class="mb-5">
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5" for="email">Email Address</label>
+        <div class="relative">
+          <i class="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input type="email" id="email" name="email" required
+                 placeholder="manager@boutique.com"
+                 value="{{ request.form.get('email', '') }}"
+                 class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+        </div>
+        <p class="text-rose-600 text-xs mt-1 hidden" id="emailErr">Please enter a valid email address.</p>
+      </div>
+
+      <!-- Password -->
+      <div class="mb-5">
+        <div class="flex justify-between items-center mb-1.5">
+          <label class="text-sm font-semibold text-slate-700" for="password">Password</label>
+          <a href="#" class="text-xs text-[#00D4C8] font-medium hover:text-[#00B5AA]">Forgot password?</a>
+        </div>
+        <div class="relative">
+          <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input type="password" id="password" name="password" required
+                 placeholder="••••••••"
+                 class="w-full pl-10 pr-11 py-3 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+          <button type="button" id="togglePw"
+                  class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition">
+            <i class="fa-regular fa-eye" id="eyeIcon"></i>
+          </button>
+        </div>
+        <p class="text-rose-600 text-xs mt-1 hidden" id="pwErr">Password is required.</p>
+      </div>
+
+      <!-- Remember -->
+      <div class="flex items-center gap-2.5 mb-7">
+        <input type="checkbox" id="remember" name="remember"
+               class="w-4 h-4 rounded text-[#00D4C8] border-slate-300 cursor-pointer accent-[#00D4C8]"/>
+        <label for="remember" class="text-sm text-slate-600 cursor-pointer">Remember this device</label>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" id="submitBtn"
+              class="w-full py-3.5 bg-[#00D4C8] hover:bg-[#00B5AA] active:scale-[.98] text-white font-semibold rounded-xl transition-all duration-150 shadow-lg shadow-teal-100 flex items-center justify-center gap-2">
+        <span id="btnText">Sign In to Dashboard</span>
+        <i id="btnSpinner" class="fa-solid fa-spinner fa-spin hidden"></i>
+      </button>
+    </form>
+
+    <!-- Demo credentials hint -->
+    <div class="mt-5 p-3 bg-slate-50 rounded-xl border border-slate-100">
+      <p class="text-xs text-slate-500 font-medium mb-1">Demo Credentials:</p>
+      <p class="text-xs text-slate-500">Admin: <span class="font-mono font-semibold text-slate-700">admin@boutique.com</span> / <span class="font-mono font-semibold text-slate-700">admin123</span></p>
+      <p class="text-xs text-slate-500">Cashier: <span class="font-mono font-semibold text-slate-700">cashier@boutique.com</span> / <span class="font-mono font-semibold text-slate-700">cashier123</span></p>
+    </div>
+  </div>
+
+  <p class="mt-6 text-xs text-slate-400 text-center">
+    Secured access for authorized boutique personnel only.<br>
+    Need help? <a href="#" class="text-[#00D4C8] font-medium hover:underline">Contact Support</a>
+  </p>
+
+  <script>
+    // Toggle password visibility
+    document.getElementById('togglePw').addEventListener('click', function() {
+      const pw = document.getElementById('password');
+      const icon = document.getElementById('eyeIcon');
+      if (pw.type === 'password') {
+        pw.type = 'text';
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
+      } else {
+        pw.type = 'password';
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
+      }
+    });
+
+    // Form validation + spinner
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      const email = document.getElementById('email').value.trim();
+      const pw = document.getElementById('password').value;
+      let valid = true;
+
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        document.getElementById('emailErr').classList.remove('hidden');
+        valid = false;
+      } else document.getElementById('emailErr').classList.add('hidden');
+
+      if (!pw) {
+        document.getElementById('pwErr').classList.remove('hidden');
+        valid = false;
+      } else document.getElementById('pwErr').classList.add('hidden');
+
+      if (!valid) { e.preventDefault(); return; }
+      document.getElementById('btnText').textContent = 'Signing In…';
+      document.getElementById('btnSpinner').classList.remove('hidden');
+      document.getElementById('submitBtn').disabled = true;
+    });
+  </script>
+</body>
+</html>
