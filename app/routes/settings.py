@@ -38,13 +38,19 @@ def _require_admin():
 def index():
     categories = Category.query.order_by(Category.name).all()
     users = User.query.all() if current_user.is_admin else []
-    store_name = StoreSetting.get('store_name', 'Boutique POS')
+    store_name  = StoreSetting.get('store_name', 'Boutique POS')
     theme_color = StoreSetting.get('theme_color', '#00D4C8')
+    # Show masked key if set
+    raw_key = StoreSetting.get('gemini_api_key', '')
+    gemini_key_set = bool(raw_key)
+    gemini_key_masked = ('•' * 20 + raw_key[-6:]) if raw_key else ''
     return render_template('settings/index.html',
                            categories=categories,
                            users=users,
                            store_name=store_name,
-                           theme_color=theme_color)
+                           theme_color=theme_color,
+                           gemini_key_set=gemini_key_set,
+                           gemini_key_masked=gemini_key_masked)
 
 
 @settings_bp.route('/settings/change-password', methods=['POST'])
@@ -152,3 +158,30 @@ def update_profile():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@settings_bp.route('/settings/save-gemini-key', methods=['POST'])
+@login_required
+def save_gemini_key():
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'message': 'Admin access required.'}), 403
+    data = request.get_json()
+    key = data.get('api_key', '').strip()
+    if not key:
+        return jsonify({'success': False, 'message': 'API key cannot be empty.'}), 400
+    if not key.startswith('AI'):
+        return jsonify({'success': False, 'message': 'That does not look like a valid Gemini API key (should start with "AI").'}), 400
+    StoreSetting.set('gemini_api_key', key)
+    db.session.commit()
+    masked = '•' * 20 + key[-6:]
+    return jsonify({'success': True, 'message': 'Gemini API key saved!', 'masked': masked})
+
+
+@settings_bp.route('/settings/remove-gemini-key', methods=['POST'])
+@login_required
+def remove_gemini_key():
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'message': 'Admin access required.'}), 403
+    StoreSetting.set('gemini_api_key', '')
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'API key removed.'})

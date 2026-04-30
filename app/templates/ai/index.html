@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% block title %}AI Advisor{% endblock %}
+{% block page_title %}AI Advisor{% endblock %}
+
+{% block extra_head %}
+<style>
+  .msg-user { background: var(--theme, #00D4C8); color: #fff; border-radius: 18px 18px 4px 18px; }
+  .msg-ai { background: #fff; color: #1e293b; border-radius: 18px 18px 18px 4px; border: 1px solid #f1f5f9; }
+  .msg-ai h3, .msg-ai h4 { font-weight: 700; margin: .75rem 0 .25rem; }
+  .msg-ai ul, .msg-ai ol { padding-left: 1.25rem; margin: .4rem 0; }
+  .msg-ai li { margin: .2rem 0; }
+  .msg-ai p { margin: .35rem 0; }
+  .msg-ai strong { font-weight: 700; }
+  .msg-ai code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: .8rem; }
+  .msg-ai hr { border-color: #f1f5f9; margin: .6rem 0; }
+  .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; animation: bounce 1.2s infinite; }
+  .typing-dot:nth-child(2) { animation-delay: .2s; }
+  .typing-dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0) } 30% { transform: translateY(-6px) } }
+  .chip { cursor: pointer; transition: all .15s; }
+  .chip:hover { background: var(--theme, #00D4C8); color: #fff; border-color: var(--theme, #00D4C8); }
+  #chatMessages::-webkit-scrollbar { width: 4px; }
+  #chatMessages::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
+  .msg-ai table { width: 100%; border-collapse: collapse; font-size: .8rem; margin: .5rem 0; }
+  .msg-ai th { background: #f8fafc; padding: 6px 10px; text-align: left; font-weight: 600; border-bottom: 1px solid #e2e8f0; }
+  .msg-ai td { padding: 5px 10px; border-bottom: 1px solid #f1f5f9; }
+</style>
+{% endblock %}
+
+{% block app_content %}
+<div class="flex h-full overflow-hidden">
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 bg-white flex items-center gap-4 flex-shrink-0">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0" style="background:var(--theme)">
+        <i class="fa-solid fa-robot text-lg"></i>
+      </div>
+      <div>
+        <h2 class="font-bold text-slate-800 text-base">AI Advisor</h2>
+        <p class="text-xs text-slate-400">Uses Gemini when available and falls back to live store analysis</p>
+      </div>
+      <div class="ml-auto flex items-center gap-2">
+        <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span id="statusText" class="text-xs text-slate-400 font-medium">Ready</span>
+        <button onclick="clearChat()"
+                class="ml-3 text-xs text-slate-400 hover:text-rose-500 font-medium transition px-3 py-1.5 border border-slate-200 rounded-lg hover:border-rose-200">
+          <i class="fa-solid fa-trash-can mr-1 text-xs"></i>Clear
+        </button>
+      </div>
+    </div>
+
+    <div id="chatMessages" class="flex-1 overflow-y-auto px-6 py-5 space-y-4 bg-slate-50">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5" style="background:var(--theme)">
+          <i class="fa-solid fa-robot text-xs"></i>
+        </div>
+        <div class="msg-ai px-4 py-3 max-w-2xl shadow-sm text-sm leading-relaxed">
+          <p class="font-semibold text-slate-800 mb-1">Hello! I'm your AI Advisor.</p>
+          <p class="text-slate-600">I can use Gemini when available, and I can still answer from your live store data if the API is unavailable or rate-limited.</p>
+          <p class="text-slate-500 text-xs mt-2">Try one of the suggestions on the right, or type your own question below.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-6 py-4 bg-white border-t border-slate-100 flex-shrink-0">
+      <div class="flex items-end gap-3">
+        <div class="flex-1 relative">
+          <textarea id="chatInput"
+                    placeholder="Ask about your stock, sales trends, profit margins..."
+                    rows="1"
+                    class="w-full px-4 py-3 pr-12 border border-slate-200 rounded-2xl text-sm bg-slate-50 focus:bg-white resize-none transition-all leading-relaxed"
+                    style="max-height:120px;overflow-y:auto"
+                    onkeydown="handleKey(event)"
+                    oninput="autoResize(this)"></textarea>
+          <button id="sendBtn" onclick="sendMessage()"
+                  class="absolute right-3 bottom-3 w-7 h-7 rounded-xl flex items-center justify-center text-white transition disabled:opacity-40"
+                  style="background:var(--theme)">
+            <i class="fa-solid fa-paper-plane text-xs"></i>
+          </button>
+        </div>
+      </div>
+      <p class="text-xs text-slate-300 mt-2 text-center">AI advice uses your store data first. Always apply business judgment.</p>
+    </div>
+  </div>
+
+  <div class="w-72 flex-shrink-0 border-l border-slate-100 bg-white flex flex-col overflow-y-auto">
+    <div class="p-5 border-b border-slate-100">
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Quick Questions</p>
+      <div class="space-y-2" id="suggestions">
+        {% set questions = [
+          ("Stock", "Which products are running low on stock?"),
+          ("Sales", "What are my top selling products this month?"),
+          ("Margin", "Which products have the highest profit margin?"),
+          ("Slow", "What are my slow-moving items I should discount?"),
+          ("Trend", "Analyse my sales trend over the last 2 weeks"),
+          ("Cat", "Which categories are performing best?"),
+          ("Cust", "Give me insights about my customer base"),
+          ("Urgent", "What stock should I reorder urgently?"),
+          ("Promo", "Suggest a promotion strategy for this week"),
+          ("Loss", "Are there any products selling at a loss?")
+        ] %}
+        {% for icon, q in questions %}
+        <button onclick="askQuestion(this.dataset.q)"
+                data-q="{{ q }}"
+                class="chip w-full text-left px-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-600 font-medium flex items-start gap-2">
+          <span class="flex-shrink-0">{{ icon }}</span>
+          <span>{{ q }}</span>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="p-5">
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Live Data Snapshot</p>
+      <div class="space-y-2.5 text-xs" id="dataSnapshot">
+        <div class="flex justify-between items-center py-2 border-b border-slate-50">
+          <span class="text-slate-400">Active Products</span>
+          <span class="font-bold text-slate-700" id="snapProducts">-</span>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-slate-50">
+          <span class="text-slate-400">Low Stock Items</span>
+          <span class="font-bold text-amber-500" id="snapLowStock">-</span>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-slate-50">
+          <span class="text-slate-400">Revenue (7 days)</span>
+          <span class="font-bold text-slate-700" id="snapRevenue">-</span>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-slate-50">
+          <span class="text-slate-400">Profit (7 days)</span>
+          <span class="font-bold text-emerald-600" id="snapProfit">-</span>
+        </div>
+        <div class="flex justify-between items-center py-2">
+          <span class="text-slate-400">Total Customers</span>
+          <span class="font-bold text-slate-700" id="snapCustomers">-</span>
+        </div>
+      </div>
+      <button onclick="loadSnapshot()"
+              class="mt-3 w-full py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition">
+        <i class="fa-solid fa-rotate mr-1"></i> Refresh Data
+      </button>
+    </div>
+
+    <div id="apiKeyNotice" class="hidden mx-5 mb-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+      <p class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Gemini Optional</p>
+      <p>Set your <code class="bg-amber-100 px-1 rounded">GEMINI_API_KEY</code> for richer AI replies. The built-in advisor still works without it.</p>
+      <a href="https://aistudio.google.com/app/apikey" target="_blank" class="inline-block mt-2 font-semibold underline">Get a Gemini API key</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let chatHistory = [];
+let isLoading = false;
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function askQuestion(q) {
+  document.getElementById('chatInput').value = q;
+  sendMessage();
+}
+
+async function sendMessage() {
+  if (isLoading) return;
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  appendMessage('user', text);
+  chatHistory.push({ role: 'user', text });
+
+  const typingId = showTyping();
+  setStatus('thinking', 'Analysing your store data...');
+  isLoading = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  try {
+    const res = await fetch('/ai-advisor/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, history: chatHistory.slice(-10) })
+    });
+    const data = await res.json();
+    removeTyping(typingId);
+
+    if (data.error) {
+      if (data.error.includes('GEMINI_API_KEY')) {
+        document.getElementById('apiKeyNotice').classList.remove('hidden');
+      }
+      appendMessage('ai', 'Warning: ' + data.error, true);
+      setStatus('error', 'Error');
+    } else {
+      appendMessage('ai', data.reply);
+      chatHistory.push({ role: 'ai', text: data.reply });
+      if (data.source === 'local_fallback') {
+        document.getElementById('apiKeyNotice').classList.remove('hidden');
+        setStatus('ready', 'Ready (built-in advisor)');
+      } else {
+        setStatus('ready', 'Ready');
+      }
+    }
+  } catch (e) {
+    removeTyping(typingId);
+    appendMessage('ai', 'Warning: Network error. Please try again.', true);
+    setStatus('error', 'Error');
+  } finally {
+    isLoading = false;
+    document.getElementById('sendBtn').disabled = false;
+  }
+}
+
+function appendMessage(role, text, isError = false) {
+  const container = document.getElementById('chatMessages');
+  const wrap = document.createElement('div');
+  wrap.className = 'flex items-start gap-3' + (role === 'user' ? ' flex-row-reverse' : '');
+
+  const avatar = document.createElement('div');
+  avatar.className = 'w-8 h-8 rounded-full flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5';
+  if (role === 'user') {
+    avatar.style.background = '#64748b';
+    avatar.innerHTML = '<i class="fa-solid fa-user text-xs"></i>';
+  } else {
+    avatar.style.background = 'var(--theme)';
+    avatar.innerHTML = '<i class="fa-solid fa-robot text-xs"></i>';
+  }
+
+  const bubble = document.createElement('div');
+  bubble.className = (role === 'user' ? 'msg-user' : 'msg-ai') + ' px-4 py-3 max-w-2xl shadow-sm text-sm leading-relaxed';
+  if (isError) bubble.style.background = '#fef2f2';
+
+  if (role === 'user') {
+    bubble.textContent = text;
+  } else {
+    bubble.innerHTML = markdownToHtml(text);
+  }
+
+  const ts = document.createElement('p');
+  ts.className = 'text-[10px] text-slate-300 mt-1.5 ' + (role === 'user' ? 'text-right' : '');
+  ts.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const inner = document.createElement('div');
+  inner.appendChild(bubble);
+  inner.appendChild(ts);
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(inner);
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTyping() {
+  const id = 'typing-' + Date.now();
+  const container = document.getElementById('chatMessages');
+  const wrap = document.createElement('div');
+  wrap.id = id;
+  wrap.className = 'flex items-start gap-3';
+  wrap.innerHTML = `
+    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs flex-shrink-0" style="background:var(--theme)">
+      <i class="fa-solid fa-robot text-xs"></i>
+    </div>
+    <div class="msg-ai px-4 py-3 shadow-sm flex items-center gap-1.5">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>`;
+  container.appendChild(wrap);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) {
+  document.getElementById(id)?.remove();
+}
+
+function setStatus(state, text) {
+  const dot = document.getElementById('statusDot');
+  const label = document.getElementById('statusText');
+  label.textContent = text;
+  dot.className = 'w-2 h-2 rounded-full ' + {
+    ready: 'bg-emerald-400',
+    thinking: 'bg-amber-400 animate-pulse',
+    error: 'bg-rose-400'
+  }[state];
+}
+
+function clearChat() {
+  chatHistory = [];
+  const c = document.getElementById('chatMessages');
+  while (c.children.length > 1) c.removeChild(c.lastChild);
+}
+
+function markdownToHtml(md) {
+  return md
+    .replace(/^### (.+)$/gm, '<h4 class="font-bold text-slate-800 mt-3 mb-1">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 class="font-bold text-slate-800 mt-3 mb-1 text-base">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h3 class="font-bold text-slate-800 mt-3 mb-1 text-lg">$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/^---$/gm, '<hr>')
+    .replace(/^\s*[-*] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+    .replace(/^(.+)/, '<p>$1</p>');
+}
+
+async function loadSnapshot() {
+  try {
+    const ctx = await fetch('/ai-advisor/context');
+    const data = await ctx.json();
+    const text = data.context || '';
+
+    const products = (text.match(/\[in_stock\]|\[low_stock\]|\[out_of_stock\]/g) || []).length;
+    const lowStockMatch = text.match(/Low stock \(<=5\): (.+)/);
+    const revenueMatch = text.match(/7 days:\s+KES ([\d,]+).*Profit: KES ([\d,]+)/);
+    const customerMatch = text.match(/Total: (\d+)/);
+
+    const lowStockCount = lowStockMatch && lowStockMatch[1] !== 'None'
+      ? lowStockMatch[1].split(',').filter(Boolean).length
+      : 0;
+
+    document.getElementById('snapProducts').textContent = products || '-';
+    document.getElementById('snapLowStock').textContent = lowStockCount;
+    document.getElementById('snapRevenue').textContent = revenueMatch ? 'KES ' + revenueMatch[1] : '-';
+    document.getElementById('snapProfit').textContent = revenueMatch ? 'KES ' + revenueMatch[2] : '-';
+    document.getElementById('snapCustomers').textContent = customerMatch ? customerMatch[1] : '-';
+  } catch (e) {
+    console.warn('Snapshot load failed', e);
+  }
+}
+
+loadSnapshot();
+document.getElementById('chatInput').focus();
+</script>
+{% endblock %}

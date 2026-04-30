@@ -121,6 +121,12 @@
         {% if request.endpoint and 'reports' in request.endpoint %}
         <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
       </a>
+      <a href="{{ url_for('ai.index') }}"
+         class="sidebar-link {% if request.endpoint and request.endpoint.startswith('ai') %}active{% endif %}"
+         style="{% if request.endpoint and request.endpoint.startswith('ai') %}{% else %}{% endif %}">
+        <i class="fa-solid fa-robot w-4"></i> AI Advisor
+        <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white" style="background:var(--theme)">AI</span>
+      </a>
     </nav>
 
     <!-- Bottom links -->

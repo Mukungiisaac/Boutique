@@ -24,6 +24,9 @@ class Config:
     # Currency
     CURRENCY_SYMBOL = 'KES'
 
+    # Gemini AI
+    GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
