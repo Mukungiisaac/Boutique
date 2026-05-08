@@ -111,6 +111,62 @@ class StoreSetting(db.Model):
 
     def __repr__(self):
         return f'<StoreSetting {self.key}={self.value}>'
+
+
+# ---------------------------------------------------------------------------
+# AI Chat Sessions
+# ---------------------------------------------------------------------------
+class AIChatSession(db.Model):
+    __tablename__ = 'ai_chat_sessions'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title      = db.Column(db.String(200), default='New Chat')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    messages = db.relationship('AIChatMessage', backref='session',
+                               lazy='dynamic', cascade='all, delete-orphan',
+                               order_by='AIChatMessage.created_at')
+
+    def __repr__(self):
+        return f'<AIChatSession {self.id} {self.title}>'
+
+
+class AIChatMessage(db.Model):
+    __tablename__ = 'ai_chat_messages'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('ai_chat_sessions.id'), nullable=False)
+    role       = db.Column(db.String(10), nullable=False)   # 'user' | 'ai'
+    text       = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<AIChatMessage {self.role} {self.id}>'
+
+
+# ---------------------------------------------------------------------------
+# Goals
+# ---------------------------------------------------------------------------
+class Goal(db.Model):
+    __tablename__ = 'goals'
+
+    id          = db.Column(db.Integer, primary_key=True)
+    user_id     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title       = db.Column(db.String(120), nullable=False)
+    goal_type   = db.Column(db.String(20), nullable=False)   # revenue | profit | transactions | stock
+    period      = db.Column(db.String(10), nullable=False)   # day | week | month
+    target      = db.Column(db.Float, nullable=False)
+    # For stock goals: link to a specific product (optional — null = all products)
+    product_id  = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
+    is_active   = db.Column(db.Boolean, default=True)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    product = db.relationship('Product', foreign_keys=[product_id])
+
+    def __repr__(self):
+        return f'<Goal {self.title} {self.target}>'
 class Category(db.Model):
     __tablename__ = 'categories'
 

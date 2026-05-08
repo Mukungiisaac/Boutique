@@ -4,145 +4,167 @@
 
 {% block extra_head %}
 <style>
-  .msg-user { background: var(--theme, #00D4C8); color: #fff; border-radius: 18px 18px 4px 18px; }
-  .msg-ai { background: #fff; color: #1e293b; border-radius: 18px 18px 18px 4px; border: 1px solid #f1f5f9; }
-  .msg-ai h3, .msg-ai h4 { font-weight: 700; margin: .75rem 0 .25rem; }
-  .msg-ai ul, .msg-ai ol { padding-left: 1.25rem; margin: .4rem 0; }
-  .msg-ai li { margin: .2rem 0; }
-  .msg-ai p { margin: .35rem 0; }
-  .msg-ai strong { font-weight: 700; }
-  .msg-ai code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: .8rem; }
-  .msg-ai hr { border-color: #f1f5f9; margin: .6rem 0; }
-  .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; animation: bounce 1.2s infinite; }
-  .typing-dot:nth-child(2) { animation-delay: .2s; }
-  .typing-dot:nth-child(3) { animation-delay: .4s; }
-  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0) } 30% { transform: translateY(-6px) } }
-  .chip { cursor: pointer; transition: all .15s; }
-  .chip:hover { background: var(--theme, #00D4C8); color: #fff; border-color: var(--theme, #00D4C8); }
-  #chatMessages::-webkit-scrollbar { width: 4px; }
-  #chatMessages::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
-  .msg-ai table { width: 100%; border-collapse: collapse; font-size: .8rem; margin: .5rem 0; }
-  .msg-ai th { background: #f8fafc; padding: 6px 10px; text-align: left; font-weight: 600; border-bottom: 1px solid #e2e8f0; }
-  .msg-ai td { padding: 5px 10px; border-bottom: 1px solid #f1f5f9; }
+  .msg-user { background:var(--theme,#00D4C8); color:#fff; border-radius:18px 18px 4px 18px; }
+  .msg-ai   { background:#fff; color:#1e293b; border-radius:18px 18px 18px 4px; border:1px solid #f1f5f9; }
+  .msg-ai h3,.msg-ai h4 { font-weight:700; margin:.75rem 0 .25rem; }
+  .msg-ai ul,.msg-ai ol  { padding-left:1.25rem; margin:.4rem 0; }
+  .msg-ai li  { margin:.2rem 0; }
+  .msg-ai p   { margin:.35rem 0; }
+  .msg-ai strong { font-weight:700; }
+  .msg-ai code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:.8rem; }
+  .msg-ai hr   { border-color:#f1f5f9; margin:.6rem 0; }
+  .msg-ai table { width:100%; border-collapse:collapse; font-size:.8rem; margin:.5rem 0; }
+  .msg-ai th { background:#f8fafc; padding:6px 10px; text-align:left; font-weight:600; border-bottom:1px solid #e2e8f0; }
+  .msg-ai td { padding:5px 10px; border-bottom:1px solid #f1f5f9; }
+  .typing-dot { width:7px; height:7px; border-radius:50%; background:#94a3b8; animation:bounce 1.2s infinite; }
+  .typing-dot:nth-child(2){animation-delay:.2s}
+  .typing-dot:nth-child(3){animation-delay:.4s}
+  @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+  .chip { cursor:pointer; transition:all .15s; }
+  .chip:hover { background:var(--theme,#00D4C8); color:#fff; border-color:var(--theme,#00D4C8); }
+  #chatMessages::-webkit-scrollbar { width:4px; }
+  #chatMessages::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:99px; }
+  .session-item { cursor:pointer; transition:background .12s; }
+  .session-item:hover { background:#f8fafc; }
+  .session-item.active { background:var(--theme-light,#E6FAF9); border-left:3px solid var(--theme,#00D4C8); }
 </style>
 {% endblock %}
 
 {% block app_content %}
 <div class="flex h-full overflow-hidden">
-  <div class="flex-1 flex flex-col overflow-hidden">
-    <div class="px-6 py-4 border-b border-slate-100 bg-white flex items-center gap-4 flex-shrink-0">
-      <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0" style="background:var(--theme)">
-        <i class="fa-solid fa-robot text-lg"></i>
-      </div>
-      <div>
-        <h2 class="font-bold text-slate-800 text-base">AI Advisor</h2>
-        <p class="text-xs text-slate-400">Uses Gemini when available and falls back to live store analysis</p>
-      </div>
-      <div class="ml-auto flex items-center gap-2">
-        <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
-        <span id="statusText" class="text-xs text-slate-400 font-medium">Ready</span>
-        <button onclick="clearChat()"
-                class="ml-3 text-xs text-slate-400 hover:text-rose-500 font-medium transition px-3 py-1.5 border border-slate-200 rounded-lg hover:border-rose-200">
-          <i class="fa-solid fa-trash-can mr-1 text-xs"></i>Clear
-        </button>
-      </div>
+
+  <!-- ===== LEFT: Chat History Panel ===== -->
+  <div class="w-64 flex-shrink-0 border-r border-slate-100 bg-white flex flex-col">
+    <div class="px-4 pt-4 pb-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Chat History</p>
+      <button onclick="newChat()"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white transition"
+              style="background:var(--theme)" title="New chat">
+        <i class="fa-solid fa-plus text-xs"></i> New
+      </button>
     </div>
 
-    <div id="chatMessages" class="flex-1 overflow-y-auto px-6 py-5 space-y-4 bg-slate-50">
-      <div class="flex items-start gap-3">
-        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5" style="background:var(--theme)">
-          <i class="fa-solid fa-robot text-xs"></i>
-        </div>
-        <div class="msg-ai px-4 py-3 max-w-2xl shadow-sm text-sm leading-relaxed">
-          <p class="font-semibold text-slate-800 mb-1">Hello! I'm your AI Advisor.</p>
-          <p class="text-slate-600">I can use Gemini when available, and I can still answer from your live store data if the API is unavailable or rate-limited.</p>
-          <p class="text-slate-500 text-xs mt-2">Try one of the suggestions on the right, or type your own question below.</p>
-        </div>
+    <div id="sessionList" class="flex-1 overflow-y-auto divide-y divide-slate-50">
+      <div class="px-4 py-8 text-center text-xs text-slate-300">
+        <i class="fa-solid fa-comments text-2xl block mb-2"></i>
+        No chats yet
       </div>
-    </div>
-
-    <div class="px-6 py-4 bg-white border-t border-slate-100 flex-shrink-0">
-      <div class="flex items-end gap-3">
-        <div class="flex-1 relative">
-          <textarea id="chatInput"
-                    placeholder="Ask about your stock, sales trends, profit margins..."
-                    rows="1"
-                    class="w-full px-4 py-3 pr-12 border border-slate-200 rounded-2xl text-sm bg-slate-50 focus:bg-white resize-none transition-all leading-relaxed"
-                    style="max-height:120px;overflow-y:auto"
-                    onkeydown="handleKey(event)"
-                    oninput="autoResize(this)"></textarea>
-          <button id="sendBtn" onclick="sendMessage()"
-                  class="absolute right-3 bottom-3 w-7 h-7 rounded-xl flex items-center justify-center text-white transition disabled:opacity-40"
-                  style="background:var(--theme)">
-            <i class="fa-solid fa-paper-plane text-xs"></i>
-          </button>
-        </div>
-      </div>
-      <p class="text-xs text-slate-300 mt-2 text-center">AI advice uses your store data first. Always apply business judgment.</p>
     </div>
   </div>
 
-  <div class="w-72 flex-shrink-0 border-l border-slate-100 bg-white flex flex-col overflow-y-auto">
-    <div class="p-5 border-b border-slate-100">
+  <!-- ===== MIDDLE: Chat Window ===== -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <div class="px-5 py-3.5 border-b border-slate-100 bg-white flex items-center gap-3 flex-shrink-0">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0"
+           style="background:var(--theme)">
+        <i class="fa-solid fa-robot"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <h2 id="chatTitle" class="font-bold text-slate-800 text-sm truncate">AI Stock Advisor</h2>
+        <p class="text-xs text-slate-400">Gemini · Live store data</p>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span id="statusText" class="text-xs text-slate-400 font-medium">Ready</span>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div id="chatMessages" class="flex-1 overflow-y-auto px-5 py-4 space-y-4 bg-slate-50">
+      <!-- Welcome -->
+      <div class="flex items-start gap-3" id="welcomeMsg">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5"
+             style="background:var(--theme)">
+          <i class="fa-solid fa-robot text-xs"></i>
+        </div>
+        <div class="msg-ai px-4 py-3 max-w-2xl shadow-sm text-sm leading-relaxed">
+          <p class="font-semibold text-slate-800 mb-1"><i class="fa-solid fa-hand-wave mr-1" style="color:var(--theme)"></i> Hello! I'm your AI Stock Advisor.</p>
+          <p class="text-slate-600">I have full access to your live store data. Ask me anything — or pick a question from the right panel.</p>
+          <p class="text-slate-400 text-xs mt-2">Your chats are saved automatically and visible in the history panel on the left.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="px-5 py-3 bg-white border-t border-slate-100 flex-shrink-0">
+      <div class="flex items-end gap-2">
+        <textarea id="chatInput"
+                  placeholder="Ask about stock, trends, margins…"
+                  rows="1"
+                  class="flex-1 px-4 py-2.5 pr-11 border border-slate-200 rounded-2xl text-sm bg-slate-50 focus:bg-white resize-none transition-all leading-relaxed"
+                  style="max-height:100px;overflow-y:auto"
+                  onkeydown="handleKey(event)"
+                  oninput="autoResize(this)"></textarea>
+        <button id="sendBtn" onclick="sendMessage()"
+                class="w-9 h-9 rounded-xl flex items-center justify-center text-white transition disabled:opacity-40 flex-shrink-0"
+                style="background:var(--theme)">
+          <i class="fa-solid fa-paper-plane text-xs"></i>
+        </button>
+      </div>
+      <p class="text-[10px] text-slate-300 mt-1.5 text-center">AI advice is based on your store data. Apply business judgment.</p>
+    </div>
+  </div>
+
+  <!-- ===== RIGHT: Suggestions + Snapshot ===== -->
+  <div class="w-64 flex-shrink-0 border-l border-slate-100 bg-white flex flex-col overflow-y-auto">
+
+    <!-- Quick questions -->
+    <div class="p-4 border-b border-slate-100">
       <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Quick Questions</p>
-      <div class="space-y-2" id="suggestions">
+      <div class="space-y-1.5">
         {% set questions = [
-          ("Stock", "Which products are running low on stock?"),
-          ("Sales", "What are my top selling products this month?"),
-          ("Margin", "Which products have the highest profit margin?"),
-          ("Slow", "What are my slow-moving items I should discount?"),
-          ("Trend", "Analyse my sales trend over the last 2 weeks"),
-          ("Cat", "Which categories are performing best?"),
-          ("Cust", "Give me insights about my customer base"),
-          ("Urgent", "What stock should I reorder urgently?"),
-          ("Promo", "Suggest a promotion strategy for this week"),
-          ("Loss", "Are there any products selling at a loss?")
+          ("fa-box-open",       "Which products are running low on stock?"),
+          ("fa-arrow-trend-up", "What are my top selling products this month?"),
+          ("fa-percent",        "Which products have the highest profit margin?"),
+          ("fa-snooze",         "What slow-moving items should I discount?"),
+          ("fa-chart-line",     "Analyse my sales trend over the last 2 weeks"),
+          ("fa-tags",           "Which categories are performing best?"),
+          ("fa-users",          "Give me insights about my customer base"),
+          ("fa-rotate-right",   "What stock should I reorder urgently?"),
+          ("fa-bullhorn",       "Suggest a promotion strategy for this week"),
+          ("fa-arrow-trend-down","Are there any products selling at a loss?"),
         ] %}
         {% for icon, q in questions %}
-        <button onclick="askQuestion(this.dataset.q)"
-                data-q="{{ q }}"
-                class="chip w-full text-left px-3 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-600 font-medium flex items-start gap-2">
-          <span class="flex-shrink-0">{{ icon }}</span>
+        <button onclick="askQuestion(this.dataset.q)" data-q="{{ q }}"
+                class="chip w-full text-left px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-600 font-medium flex items-start gap-2.5">
+          <i class="fa-solid {{ icon }} text-slate-400 mt-0.5 w-3 flex-shrink-0"></i>
           <span>{{ q }}</span>
         </button>
         {% endfor %}
       </div>
     </div>
 
-    <div class="p-5">
-      <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Live Data Snapshot</p>
-      <div class="space-y-2.5 text-xs" id="dataSnapshot">
-        <div class="flex justify-between items-center py-2 border-b border-slate-50">
+    <!-- Snapshot -->
+    <div class="p-4">
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Live Snapshot</p>
+      <div class="space-y-2 text-xs">
+        <div class="flex justify-between py-1.5 border-b border-slate-50">
           <span class="text-slate-400">Active Products</span>
-          <span class="font-bold text-slate-700" id="snapProducts">-</span>
+          <span class="font-bold text-slate-700" id="snapProducts">—</span>
         </div>
-        <div class="flex justify-between items-center py-2 border-b border-slate-50">
-          <span class="text-slate-400">Low Stock Items</span>
-          <span class="font-bold text-amber-500" id="snapLowStock">-</span>
+        <div class="flex justify-between py-1.5 border-b border-slate-50">
+          <span class="text-slate-400">Low Stock</span>
+          <span class="font-bold text-amber-500" id="snapLowStock">—</span>
         </div>
-        <div class="flex justify-between items-center py-2 border-b border-slate-50">
-          <span class="text-slate-400">Revenue (7 days)</span>
-          <span class="font-bold text-slate-700" id="snapRevenue">-</span>
+        <div class="flex justify-between py-1.5 border-b border-slate-50">
+          <span class="text-slate-400">Revenue (7d)</span>
+          <span class="font-bold text-slate-700" id="snapRevenue">—</span>
         </div>
-        <div class="flex justify-between items-center py-2 border-b border-slate-50">
-          <span class="text-slate-400">Profit (7 days)</span>
-          <span class="font-bold text-emerald-600" id="snapProfit">-</span>
+        <div class="flex justify-between py-1.5 border-b border-slate-50">
+          <span class="text-slate-400">Profit (7d)</span>
+          <span class="font-bold text-emerald-600" id="snapProfit">—</span>
         </div>
-        <div class="flex justify-between items-center py-2">
-          <span class="text-slate-400">Total Customers</span>
-          <span class="font-bold text-slate-700" id="snapCustomers">-</span>
+        <div class="flex justify-between py-1.5">
+          <span class="text-slate-400">Customers</span>
+          <span class="font-bold text-slate-700" id="snapCustomers">—</span>
         </div>
       </div>
       <button onclick="loadSnapshot()"
-              class="mt-3 w-full py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition">
-        <i class="fa-solid fa-rotate mr-1"></i> Refresh Data
+              class="mt-3 w-full py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition">
+        <i class="fa-solid fa-rotate mr-1"></i>Refresh
       </button>
-    </div>
-
-    <div id="apiKeyNotice" class="hidden mx-5 mb-5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
-      <p class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Gemini Optional</p>
-      <p>Set your <code class="bg-amber-100 px-1 rounded">GEMINI_API_KEY</code> for richer AI replies. The built-in advisor still works without it.</p>
-      <a href="https://aistudio.google.com/app/apikey" target="_blank" class="inline-block mt-2 font-semibold underline">Get a Gemini API key</a>
     </div>
   </div>
 </div>
@@ -150,30 +172,100 @@
 
 {% block extra_scripts %}
 <script>
-let chatHistory = [];
-let isLoading = false;
+// ===== State =====
+let chatHistory   = [];
+let isLoading     = false;
+let currentSessId = null;
 
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+// ===== Boot =====
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadSessions();
+  loadSnapshot();
+  document.getElementById('chatInput').focus();
+});
+
+// ===== Session list =====
+async function loadSessions() {
+  const res  = await fetch('/ai-advisor/sessions');
+  const list = await res.json();
+  renderSessionList(list);
 }
 
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
+function renderSessionList(sessions) {
+  const el = document.getElementById('sessionList');
+  if (!sessions.length) {
+    el.innerHTML = '<div class="px-4 py-8 text-center text-xs text-slate-300"><i class="fa-solid fa-comments text-2xl block mb-2"></i>No chats yet</div>';
+    return;
   }
+  el.innerHTML = sessions.map(s => `
+    <div class="session-item px-4 py-3 flex items-start gap-2 ${s.id === currentSessId ? 'active' : ''}"
+         data-id="${s.id}" onclick="loadSession(${s.id})">
+      <i class="fa-regular fa-message text-slate-300 text-xs mt-0.5 flex-shrink-0"></i>
+      <div class="flex-1 min-w-0">
+        <p class="text-xs font-semibold text-slate-700 truncate">${escHtml(s.title)}</p>
+        <p class="text-[10px] text-slate-400 mt-0.5">${s.updated_at} · ${s.msg_count} msgs</p>
+      </div>
+      <button onclick="event.stopPropagation();deleteSession(${s.id})"
+              class="text-slate-200 hover:text-rose-400 transition flex-shrink-0 mt-0.5 p-0.5">
+        <i class="fa-solid fa-trash text-[10px]"></i>
+      </button>
+    </div>`).join('');
 }
 
-function askQuestion(q) {
-  document.getElementById('chatInput').value = q;
-  sendMessage();
+async function loadSession(id) {
+  const res  = await fetch(`/ai-advisor/sessions/${id}`);
+  const data = await res.json();
+
+  currentSessId = id;
+  chatHistory   = data.messages.map(m => ({ role: m.role, text: m.text }));
+
+  // Update title
+  document.getElementById('chatTitle').textContent = data.title;
+
+  // Rebuild messages panel
+  const container = document.getElementById('chatMessages');
+  container.innerHTML = '';
+  data.messages.forEach(m => appendMessage(m.role, m.text, false, m.time));
+  container.scrollTop = container.scrollHeight;
+
+  // Highlight active session
+  document.querySelectorAll('.session-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.id) === id);
+  });
 }
 
+async function newChat() {
+  currentSessId = null;
+  chatHistory   = [];
+  document.getElementById('chatTitle').textContent = 'AI Stock Advisor';
+  const container = document.getElementById('chatMessages');
+  container.innerHTML = `
+    <div class="flex items-start gap-3" id="welcomeMsg">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5" style="background:var(--theme)">
+        <i class="fa-solid fa-robot text-xs"></i>
+      </div>
+      <div class="msg-ai px-4 py-3 max-w-2xl shadow-sm text-sm leading-relaxed">
+        <p class="font-semibold text-slate-800 mb-1"><i class="fa-solid fa-robot mr-1" style="color:var(--theme)"></i> Hello! I'm your AI Stock Advisor.</p>
+        <p class="text-slate-600">Ask me anything about your store — stock, sales, margins, promotions.</p>
+      </div>
+    </div>`;
+  document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('chatInput').focus();
+}
+
+async function deleteSession(id) {
+  if (!confirm('Delete this chat? This cannot be undone.')) return;
+  await fetch(`/ai-advisor/sessions/${id}`, { method: 'DELETE' });
+  if (currentSessId === id) newChat();
+  await loadSessions();
+  showToast('Chat deleted.');
+}
+
+// ===== Send message =====
 async function sendMessage() {
   if (isLoading) return;
   const input = document.getElementById('chatInput');
-  const text = input.value.trim();
+  const text  = input.value.trim();
   if (!text) return;
 
   input.value = '';
@@ -183,38 +275,42 @@ async function sendMessage() {
   chatHistory.push({ role: 'user', text });
 
   const typingId = showTyping();
-  setStatus('thinking', 'Analysing your store data...');
+  setStatus('thinking', 'Thinking…');
   isLoading = true;
   document.getElementById('sendBtn').disabled = true;
 
   try {
-    const res = await fetch('/ai-advisor/chat', {
+    const res  = await fetch('/ai-advisor/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, history: chatHistory.slice(-10) })
+      body: JSON.stringify({
+        message:    text,
+        history:    chatHistory.slice(-10),
+        session_id: currentSessId,
+      })
     });
     const data = await res.json();
     removeTyping(typingId);
 
     if (data.error) {
-      if (data.error.includes('GEMINI_API_KEY')) {
-        document.getElementById('apiKeyNotice').classList.remove('hidden');
-      }
-      appendMessage('ai', 'Warning: ' + data.error, true);
+      appendMessage('ai', '⚠️ ' + data.error, true);
       setStatus('error', 'Error');
     } else {
       appendMessage('ai', data.reply);
       chatHistory.push({ role: 'ai', text: data.reply });
-      if (data.source === 'local_fallback') {
-        document.getElementById('apiKeyNotice').classList.remove('hidden');
-        setStatus('ready', 'Ready (built-in advisor)');
-      } else {
-        setStatus('ready', 'Ready');
+      currentSessId = data.session_id;
+
+      // Update title bar
+      if (chatHistory.filter(m => m.role === 'user').length === 1) {
+        document.getElementById('chatTitle').textContent = text.slice(0, 60);
       }
+
+      setStatus('ready', data.source === 'gemini' ? 'Gemini' : 'Ready');
+      await loadSessions();   // refresh history list
     }
   } catch (e) {
     removeTyping(typingId);
-    appendMessage('ai', 'Warning: Network error. Please try again.', true);
+    appendMessage('ai', '⚠️ Network error. Please try again.', true);
     setStatus('error', 'Error');
   } finally {
     isLoading = false;
@@ -222,39 +318,36 @@ async function sendMessage() {
   }
 }
 
-function appendMessage(role, text, isError = false) {
+function askQuestion(q) {
+  document.getElementById('chatInput').value = q;
+  sendMessage();
+}
+
+// ===== Render helpers =====
+function appendMessage(role, text, isError = false, timeStr = null) {
   const container = document.getElementById('chatMessages');
   const wrap = document.createElement('div');
   wrap.className = 'flex items-start gap-3' + (role === 'user' ? ' flex-row-reverse' : '');
 
   const avatar = document.createElement('div');
   avatar.className = 'w-8 h-8 rounded-full flex items-center justify-center text-white text-xs flex-shrink-0 mt-0.5';
-  if (role === 'user') {
-    avatar.style.background = '#64748b';
-    avatar.innerHTML = '<i class="fa-solid fa-user text-xs"></i>';
-  } else {
-    avatar.style.background = 'var(--theme)';
-    avatar.innerHTML = '<i class="fa-solid fa-robot text-xs"></i>';
-  }
+  avatar.style.background = role === 'user' ? '#64748b' : 'var(--theme)';
+  avatar.innerHTML = role === 'user'
+    ? '<i class="fa-solid fa-user text-xs"></i>'
+    : '<i class="fa-solid fa-robot text-xs"></i>';
 
   const bubble = document.createElement('div');
-  bubble.className = (role === 'user' ? 'msg-user' : 'msg-ai') + ' px-4 py-3 max-w-2xl shadow-sm text-sm leading-relaxed';
+  bubble.className = (role === 'user' ? 'msg-user' : 'msg-ai') + ' px-4 py-3 max-w-xl shadow-sm text-sm leading-relaxed';
   if (isError) bubble.style.background = '#fef2f2';
-
-  if (role === 'user') {
-    bubble.textContent = text;
-  } else {
-    bubble.innerHTML = markdownToHtml(text);
-  }
+  bubble.innerHTML = role === 'user' ? escHtml(text) : markdownToHtml(text);
 
   const ts = document.createElement('p');
-  ts.className = 'text-[10px] text-slate-300 mt-1.5 ' + (role === 'user' ? 'text-right' : '');
-  ts.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  ts.className = 'text-[10px] text-slate-300 mt-1 ' + (role === 'user' ? 'text-right' : '');
+  ts.textContent = timeStr || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const inner = document.createElement('div');
   inner.appendChild(bubble);
   inner.appendChild(ts);
-
   wrap.appendChild(avatar);
   wrap.appendChild(inner);
   container.appendChild(wrap);
@@ -272,79 +365,67 @@ function showTyping() {
       <i class="fa-solid fa-robot text-xs"></i>
     </div>
     <div class="msg-ai px-4 py-3 shadow-sm flex items-center gap-1.5">
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
+      <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
     </div>`;
   container.appendChild(wrap);
   container.scrollTop = container.scrollHeight;
   return id;
 }
 
-function removeTyping(id) {
-  document.getElementById(id)?.remove();
-}
+function removeTyping(id) { document.getElementById(id)?.remove(); }
 
 function setStatus(state, text) {
-  const dot = document.getElementById('statusDot');
-  const label = document.getElementById('statusText');
-  label.textContent = text;
-  dot.className = 'w-2 h-2 rounded-full ' + {
-    ready: 'bg-emerald-400',
-    thinking: 'bg-amber-400 animate-pulse',
-    error: 'bg-rose-400'
+  document.getElementById('statusText').textContent = text;
+  document.getElementById('statusDot').className = 'w-2 h-2 rounded-full ' + {
+    ready: 'bg-emerald-400', thinking: 'bg-amber-400 animate-pulse', error: 'bg-rose-400'
   }[state];
 }
 
-function clearChat() {
-  chatHistory = [];
-  const c = document.getElementById('chatMessages');
-  while (c.children.length > 1) c.removeChild(c.lastChild);
+// ===== Utilities =====
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 }
-
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 function markdownToHtml(md) {
   return md
-    .replace(/^### (.+)$/gm, '<h4 class="font-bold text-slate-800 mt-3 mb-1">$1</h4>')
+    .replace(/^### (.+)$/gm,'<h4 class="font-bold text-slate-800 mt-3 mb-1">$1</h4>')
     .replace(/^## (.+)$/gm, '<h3 class="font-bold text-slate-800 mt-3 mb-1 text-base">$1</h3>')
-    .replace(/^# (.+)$/gm, '<h3 class="font-bold text-slate-800 mt-3 mb-1 text-lg">$1</h3>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/^---$/gm, '<hr>')
-    .replace(/^\s*[-*] (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
-    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>')
-    .replace(/^(.+)/, '<p>$1</p>');
+    .replace(/^# (.+)$/gm,  '<h3 class="font-bold text-slate-800 mt-3 mb-1 text-lg">$1</h3>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,   '<em>$1</em>')
+    .replace(/`([^`]+)`/g,   '<code>$1</code>')
+    .replace(/^---$/gm,      '<hr>')
+    .replace(/^\s*[-*] (.+)$/gm,'<li>$1</li>')
+    .replace(/^\d+\. (.+)$/gm,  '<li>$1</li>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br>')
+    .replace(/^(.+)/,'<p>$1</p>');
 }
 
+// ===== Snapshot =====
 async function loadSnapshot() {
   try {
-    const ctx = await fetch('/ai-advisor/context');
-    const data = await ctx.json();
+    const res  = await fetch('/ai-advisor/context');
+    const data = await res.json();
     const text = data.context || '';
-
-    const products = (text.match(/\[in_stock\]|\[low_stock\]|\[out_of_stock\]/g) || []).length;
-    const lowStockMatch = text.match(/Low stock \(<=5\): (.+)/);
-    const revenueMatch = text.match(/7 days:\s+KES ([\d,]+).*Profit: KES ([\d,]+)/);
-    const customerMatch = text.match(/Total: (\d+)/);
-
-    const lowStockCount = lowStockMatch && lowStockMatch[1] !== 'None'
-      ? lowStockMatch[1].split(',').filter(Boolean).length
-      : 0;
-
-    document.getElementById('snapProducts').textContent = products || '-';
-    document.getElementById('snapLowStock').textContent = lowStockCount;
-    document.getElementById('snapRevenue').textContent = revenueMatch ? 'KES ' + revenueMatch[1] : '-';
-    document.getElementById('snapProfit').textContent = revenueMatch ? 'KES ' + revenueMatch[2] : '-';
-    document.getElementById('snapCustomers').textContent = customerMatch ? customerMatch[1] : '-';
-  } catch (e) {
-    console.warn('Snapshot load failed', e);
-  }
+    const products     = (text.match(/\[in_stock\]|\[low_stock\]|\[out_of_stock\]/g)||[]).length;
+    const lowMatch     = text.match(/Low stock \(<=5\): (.+)/);
+    const revMatch     = text.match(/7 days:\s+KES ([\d,]+).*Profit: KES ([\d,]+)/);
+    const custMatch    = text.match(/Total: (\d+)/);
+    const lowCount     = lowMatch && lowMatch[1] !== 'None'
+      ? lowMatch[1].split(',').filter(Boolean).length : 0;
+    document.getElementById('snapProducts').textContent  = products || '—';
+    document.getElementById('snapLowStock').textContent  = lowCount;
+    document.getElementById('snapRevenue').textContent   = revMatch  ? 'KES '+revMatch[1]  : '—';
+    document.getElementById('snapProfit').textContent    = revMatch  ? 'KES '+revMatch[2]  : '—';
+    document.getElementById('snapCustomers').textContent = custMatch ? custMatch[1] : '—';
+  } catch(e) { console.warn('Snapshot failed', e); }
 }
-
-loadSnapshot();
-document.getElementById('chatInput').focus();
 </script>
 {% endblock %}

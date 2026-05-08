@@ -121,6 +121,12 @@
         {% if request.endpoint and 'reports' in request.endpoint %}
         <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
       </a>
+      <a href="{{ url_for('goals.index') }}"
+         class="sidebar-link {% if request.endpoint and 'goals' in request.endpoint %}active{% endif %}">
+        <i class="fa-solid fa-bullseye w-4"></i> Goals
+        {% if request.endpoint and 'goals' in request.endpoint %}
+        <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
+      </a>
       <a href="{{ url_for('ai.index') }}"
          class="sidebar-link {% if request.endpoint and request.endpoint.startswith('ai') %}active{% endif %}"
          style="{% if request.endpoint and request.endpoint.startswith('ai') %}{% else %}{% endif %}">

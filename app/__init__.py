@@ -59,6 +59,7 @@ def create_app(config_name='default'):
     from app.routes.settings import settings_bp
     from app.routes.api import api_bp
     from app.routes.ai_advisor import ai_bp
+    from app.routes.goals import goals_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -69,6 +70,7 @@ def create_app(config_name='default'):
     app.register_blueprint(settings_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(ai_bp)
+    app.register_blueprint(goals_bp)
 
     # Create tables and seed data
     with app.app_context():

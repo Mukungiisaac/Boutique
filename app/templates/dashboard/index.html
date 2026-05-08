@@ -2,113 +2,147 @@
 {% block title %}Dashboard{% endblock %}
 {% block page_title %}Admin Dashboard{% endblock %}
 
+{% block extra_head %}
+<style>
+  .kpi-value { transition: all .4s ease; }
+  .kpi-flash { animation: kpiFlash .6s ease; }
+  @keyframes kpiFlash {
+    0%   { transform:scale(1); }
+    40%  { transform:scale(1.06); color:var(--theme); }
+    100% { transform:scale(1); }
+  }
+  .live-dot { animation: livePulse 2s infinite; }
+  @keyframes livePulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%      { opacity:.4; transform:scale(1.4); }
+  }
+  .row-new { animation: rowSlide .8s ease; }
+  @keyframes rowSlide {
+    from { background:#E6FAF9; }
+    to   { background:transparent; }
+  }
+</style>
+{% endblock %}
+
 {% block app_content %}
 <div class="p-6 space-y-6">
 
   <!-- Welcome row -->
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-between flex-wrap gap-3">
     <div>
-      <h2 class="text-xl font-bold text-slate-800">Welcome back, {{ current_user.name.split()[0] }} 👋</h2>
+      <h2 class="text-xl font-bold text-slate-800">
+        Welcome back, {{ current_user.name.split()[0] }}
+        <i class="fa-solid fa-hand-wave text-amber-400 text-lg ml-1"></i>
+      </h2>
       <p class="text-slate-500 text-sm mt-0.5">Here's what's happening at your boutique today.</p>
     </div>
-    <div class="flex gap-3">
-      <button onclick="location.reload()"
-              class="flex items-center gap-2 px-4 py-2 text-sm border border-slate-200 rounded-xl hover:bg-slate-50 transition text-slate-600 font-medium">
-        <i class="fa-solid fa-clock-rotate-left text-xs"></i> Activity Log
-      </button>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+        <span class="live-dot w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+        <span class="text-xs font-semibold text-emerald-600">Live</span>
+        <span id="lastUpdated" class="text-xs text-emerald-500 font-mono">--:--:--</span>
+      </div>
       <a href="{{ url_for('pos.index') }}"
-         class="flex items-center gap-2 px-4 py-2 text-sm bg-[#00D4C8] hover:bg-[#00B5AA] text-white rounded-xl transition font-semibold shadow-sm shadow-teal-100">
+         class="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-xl transition font-semibold shadow-sm"
+         style="background:var(--theme)">
         <i class="fa-solid fa-plus text-xs"></i> New Sale
       </a>
     </div>
   </div>
 
+  <!-- Today mini bar -->
+  <div class="grid grid-cols-2 gap-3">
+    <div class="bg-white rounded-xl border border-slate-100 px-4 py-3 flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+           style="background:var(--theme-light,#E6FAF9)">
+        <i class="fa-solid fa-sun text-xs" style="color:var(--theme)"></i>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 font-medium">Today's Revenue</p>
+        <p class="text-base font-bold text-slate-800 kpi-value" id="todayRevenue">KES 0</p>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-100 px-4 py-3 flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-amber-50">
+        <i class="fa-solid fa-cash-register text-amber-500 text-xs"></i>
+      </div>
+      <div>
+        <p class="text-xs text-slate-400 font-medium">Today's Sales</p>
+        <p class="text-base font-bold text-slate-800 kpi-value" id="todayTxns">0 sales</p>
+      </div>
+    </div>
+  </div>
+
   <!-- KPI Cards -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <!-- Revenue -->
     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-card hover:shadow-hover transition">
       <div class="flex items-start justify-between mb-3">
         <div class="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center">
-          <i class="fa-solid fa-dollar-sign text-[#00D4C8] text-sm"></i>
+          <i class="fa-solid fa-dollar-sign text-sm" style="color:var(--theme)"></i>
         </div>
-        <span class="text-xs font-semibold text-emerald-500 flex items-center gap-1">
-          <i class="fa-solid fa-arrow-trend-up text-xs"></i> +12.5%
-        </span>
+        <span class="text-xs font-semibold text-slate-400">All time</span>
       </div>
       <p class="text-slate-500 text-xs font-medium mb-1">Total Revenue</p>
-      <p class="text-2xl font-bold text-slate-800">KES {{ "{:,.2f}".format(total_revenue) }}</p>
+      <p class="text-2xl font-bold text-slate-800 kpi-value" id="kpiRevenue">KES {{ "{:,.0f}".format(total_revenue) }}</p>
     </div>
 
-    <!-- Transactions -->
     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-card hover:shadow-hover transition">
       <div class="flex items-start justify-between mb-3">
         <div class="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
           <i class="fa-solid fa-receipt text-blue-500 text-sm"></i>
         </div>
-        <span class="text-xs font-semibold text-emerald-500 flex items-center gap-1">
-          <i class="fa-solid fa-arrow-trend-up text-xs"></i> +8.2%
-        </span>
+        <span class="text-xs font-semibold text-slate-400">All time</span>
       </div>
       <p class="text-slate-500 text-xs font-medium mb-1">Transactions</p>
-      <p class="text-2xl font-bold text-slate-800">{{ total_transactions }}</p>
+      <p class="text-2xl font-bold text-slate-800 kpi-value" id="kpiTxns">{{ total_transactions }}</p>
     </div>
 
-    <!-- Inventory -->
     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-card hover:shadow-hover transition">
       <div class="flex items-start justify-between mb-3">
         <div class="w-9 h-9 bg-violet-50 rounded-xl flex items-center justify-center">
           <i class="fa-solid fa-box text-violet-500 text-sm"></i>
         </div>
-        <span class="text-xs font-semibold text-rose-500 flex items-center gap-1">
-          <i class="fa-solid fa-arrow-trend-down text-xs"></i> -2.4%
-        </span>
+        <span class="text-xs font-semibold text-slate-400">Units</span>
       </div>
       <p class="text-slate-500 text-xs font-medium mb-1">Active Inventory</p>
-      <p class="text-2xl font-bold text-slate-800">{{ "{:,}".format(active_inventory) }}</p>
+      <p class="text-2xl font-bold text-slate-800 kpi-value" id="kpiInventory">{{ "{:,}".format(active_inventory) }}</p>
     </div>
 
-    <!-- New Customers -->
     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-card hover:shadow-hover transition">
       <div class="flex items-start justify-between mb-3">
         <div class="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
           <i class="fa-solid fa-user-plus text-amber-500 text-sm"></i>
         </div>
-        <span class="text-xs font-semibold text-emerald-500 flex items-center gap-1">
-          <i class="fa-solid fa-arrow-trend-up text-xs"></i> +18.7%
-        </span>
+        <span class="text-xs font-semibold text-slate-400">30 days</span>
       </div>
       <p class="text-slate-500 text-xs font-medium mb-1">New Customers</p>
-      <p class="text-2xl font-bold text-slate-800">{{ new_customers }}</p>
+      <p class="text-2xl font-bold text-slate-800 kpi-value" id="kpiCustomers">{{ new_customers }}</p>
     </div>
   </div>
 
-  <!-- Chart + Stock alerts row -->
-  <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+  <!-- Chart + Alerts -->
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
 
-    <!-- Weekly Performance Chart -->
-    <div class="xl:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-card p-6">
-      <div class="flex items-start justify-between mb-1">
+    <div class="xl:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-card p-6 flex flex-col">
+      <div class="flex items-start justify-between mb-1 flex-shrink-0">
         <div>
           <h3 class="font-semibold text-slate-800">Weekly Performance</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Sales and Revenue trends for the current week</p>
+          <p class="text-xs text-slate-400 mt-0.5">Revenue trend — refreshes every 30 s</p>
         </div>
-        <button class="text-xs text-[#00D4C8] font-semibold hover:text-[#00B5AA] flex items-center gap-1">
-          <span class="w-1.5 h-1.5 bg-[#00D4C8] rounded-full animate-pulse"></span> Live Updates
-        </button>
+        <div class="flex items-center gap-1.5 text-xs font-semibold" style="color:var(--theme)">
+          <span class="live-dot w-1.5 h-1.5 rounded-full inline-block" style="background:var(--theme)"></span>
+          Live
+        </div>
       </div>
-      <div class="h-56 mt-4">
-        <canvas id="weeklyChart"></canvas>
-      </div>
+      <div class="mt-4 flex-1 min-h-0" style="height:220px"><canvas id="weeklyChart"></canvas></div>
     </div>
 
-    <!-- Stock Alerts + Goal -->
     <div class="space-y-4">
-      <!-- Stock Alerts -->
       <div class="bg-white rounded-2xl border border-slate-100 shadow-card p-5">
         <h3 class="font-semibold text-slate-800 flex items-center gap-2 mb-4">
           <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm"></i> Stock Alerts
         </h3>
-        <div class="space-y-3">
+        <div id="stockAlerts" class="space-y-3">
           {% for variant in out_of_stock %}
           <div class="flex items-center justify-between">
             <div>
@@ -128,7 +162,9 @@
           </div>
           {% else %}
           {% if not out_of_stock %}
-          <p class="text-sm text-slate-400 text-center py-2">All products well-stocked ✓</p>
+          <p class="text-sm text-slate-400 text-center py-2">
+            <i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>All products well-stocked
+          </p>
           {% endif %}
           {% endfor %}
         </div>
@@ -138,22 +174,32 @@
         </a>
       </div>
 
-      <!-- Goal Progress -->
-      <div class="bg-[#00D4C8] rounded-2xl p-5 text-white">
+      <div class="rounded-2xl p-5 text-white" style="background:var(--theme)">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-semibold">Goal Progress</h3>
-          <span class="text-xs bg-white/20 px-2 py-1 rounded-lg font-medium">Monthly</span>
+          <a href="{{ url_for('goals.index') }}"
+             class="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded-lg font-medium transition">
+            Manage
+          </a>
         </div>
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-sm opacity-90">Sales Target</p>
-          <p class="text-sm font-bold">{{ goal_progress }}%</p>
+        <div id="dashGoals" class="space-y-3">
+          <!-- filled by JS -->
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-sm opacity-90">Sales Target</p>
+            <p class="text-sm font-bold" id="goalPct">{{ goal_progress }}%</p>
+          </div>
+          <div class="w-full bg-white/30 rounded-full h-2 mb-3">
+            <div id="goalBar" class="bg-white rounded-full h-2 transition-all duration-700"
+                 style="width:{{ goal_progress }}%"></div>
+          </div>
+          <p class="text-xs opacity-80" id="goalGap">
+            You're KES {{ "{:,.0f}".format(monthly_target - monthly_revenue) }} away from your monthly target.
+          </p>
         </div>
-        <div class="w-full bg-white/30 rounded-full h-2 mb-3">
-          <div class="bg-white rounded-full h-2 transition-all duration-500" style="width: {{ goal_progress }}%"></div>
-        </div>
-        <p class="text-xs opacity-80">
-          You're KES {{ "{:,.0f}".format(monthly_target - monthly_revenue) }} away from your monthly target. Keep it up!
-        </p>
+        <a href="{{ url_for('goals.index') }}"
+           class="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold bg-white/20 hover:bg-white/30 rounded-xl py-2 transition">
+          <i class="fa-solid fa-bullseye text-xs"></i> View All Goals
+        </a>
       </div>
     </div>
   </div>
@@ -163,13 +209,13 @@
     <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
       <div>
         <h3 class="font-semibold text-slate-800">Recent Transactions</h3>
-        <p class="text-xs text-slate-400 mt-0.5">Review latest sales from all terminals</p>
+        <p class="text-xs text-slate-400 mt-0.5">Updates automatically every 30 seconds</p>
       </div>
-      <a href="{{ url_for('reports.index') }}" class="text-xs font-semibold text-[#00D4C8] hover:text-[#00B5AA] flex items-center gap-1">
-        View All <i class="fa-solid fa-arrow-up-right-from-square"></i>
+      <a href="{{ url_for('reports.index') }}"
+         class="text-xs font-semibold flex items-center gap-1 hover:underline" style="color:var(--theme)">
+        View All <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
       </a>
     </div>
-
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
@@ -182,21 +228,18 @@
             <th class="px-4 py-3 text-left font-medium">Time</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-50">
+        <tbody id="txnTable" class="divide-y divide-slate-50">
           {% for sale in recent_sales %}
           <tr class="hover:bg-slate-50 transition">
             <td class="px-6 py-3.5">
               <a href="{{ url_for('pos.receipt', sale_id=sale.id) }}"
-                 class="text-[#00D4C8] font-semibold hover:underline text-xs">
+                 class="font-semibold hover:underline text-xs" style="color:var(--theme)">
                 #{{ sale.order_number }}
               </a>
             </td>
-            <td class="px-4 py-3.5 text-slate-700">
-              {{ sale.customer.name if sale.customer else 'Walk-in' }}
-            </td>
+            <td class="px-4 py-3.5 text-slate-700">{{ sale.customer.name if sale.customer else 'Walk-in' }}</td>
             <td class="px-4 py-3.5 text-slate-600">
-              {% set first_item = sale.items.first() %}
-              {{ first_item.product_name if first_item else '—' }}
+              {% set fi = sale.items.first() %}{{ fi.product_name if fi else '—' }}
             </td>
             <td class="px-4 py-3.5 font-semibold text-slate-800">KES {{ "{:,.2f}".format(sale.total_amount) }}</td>
             <td class="px-4 py-3.5">
@@ -207,9 +250,7 @@
                 {{ sale.status | capitalize }}
               </span>
             </td>
-            <td class="px-4 py-3.5 text-slate-400 text-xs">
-              {{ sale.created_at.strftime('%d %b, %H:%M') }}
-            </td>
+            <td class="px-4 py-3.5 text-slate-400 text-xs">{{ sale.created_at.strftime('%d %b, %H:%M') }}</td>
           </tr>
           {% else %}
           <tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 text-sm">No transactions yet.</td></tr>
@@ -224,50 +265,176 @@
 
 {% block extra_scripts %}
 <script>
-const ctx = document.getElementById('weeklyChart').getContext('2d');
-const weeklyChart = new Chart(ctx, {
+// ── Chart ─────────────────────────────────────────────────────────────────
+const themeColor = getComputedStyle(document.documentElement)
+  .getPropertyValue('--theme').trim() || '#00D4C8';
+
+const weeklyChart = new Chart(
+  document.getElementById('weeklyChart').getContext('2d'), {
   type: 'line',
   data: {
     labels: {{ day_labels | tojson }},
-    datasets: [
-      {
-        label: 'Revenue',
-        data: {{ weekly_data | tojson }},
-        borderColor: '#00D4C8',
-        backgroundColor: 'rgba(0,212,200,0.08)',
-        borderWidth: 2.5,
-        fill: true,
-        tension: 0.45,
-        pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHoverBackgroundColor: '#00D4C8',
-      },
-      {
-        label: 'Sales',
-        data: {{ weekly_data | map('multiply', 0.7) | list | tojson }},
-        borderColor: '#f59e0b',
-        backgroundColor: 'rgba(245,158,11,0.05)',
-        borderWidth: 2,
-        fill: false,
-        tension: 0.45,
-        pointRadius: 0,
-        borderDash: [4, 3],
-      }
-    ]
+    datasets: [{
+      label: 'Revenue',
+      data: {{ weekly_data | tojson }},
+      borderColor: themeColor,
+      backgroundColor: themeColor + '14',
+      borderWidth: 2.5,
+      fill: true,
+      tension: 0.45,
+      pointRadius: 3,
+      pointHoverRadius: 6,
+      pointBackgroundColor: '#fff',
+      pointBorderColor: themeColor,
+      pointBorderWidth: 2,
+    }]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { intersect: false, mode: 'index' },
     plugins: {
-      legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 }, color: '#64748b' } },
-      tooltip: { backgroundColor: '#1e293b', titleFont: { size: 11 }, bodyFont: { size: 12 }, padding: 10, cornerRadius: 8 }
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1e293b',
+        padding: 10,
+        cornerRadius: 8,
+        callbacks: { label: c => ' KES ' + c.parsed.y.toLocaleString() }
+      }
     },
     scales: {
       x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#94a3b8' } },
-      y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, color: '#94a3b8', callback: v => 'KES ' + v.toLocaleString() } }
+      y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 }, color: '#94a3b8',
+           callback: v => 'KES ' + v.toLocaleString() } }
     }
   }
 });
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+const fmt  = n => 'KES ' + Number(n).toLocaleString('en', {minimumFractionDigits: 0});
+const fmt2 = n => 'KES ' + Number(n).toLocaleString('en', {minimumFractionDigits: 2});
+
+function flash(el) {
+  el.classList.remove('kpi-flash');
+  void el.offsetWidth;
+  el.classList.add('kpi-flash');
+}
+
+function setKpi(id, val) {
+  const el = document.getElementById(id);
+  if (!el || el.textContent.trim() === String(val)) return;
+  el.textContent = val;
+  flash(el);
+}
+
+// ── Poll ──────────────────────────────────────────────────────────────────
+let lastTopId = null;
+
+async function refresh() {
+  try {
+    const res = await fetch('/dashboard/live');
+    if (!res.ok) return;
+    const d = await res.json();
+
+    document.getElementById('lastUpdated').textContent = d.ts;
+
+    // KPIs
+    setKpi('kpiRevenue',   fmt(d.total_revenue));
+    setKpi('kpiTxns',      d.total_transactions.toLocaleString());
+    setKpi('kpiInventory', d.active_inventory.toLocaleString());
+    setKpi('kpiCustomers', d.new_customers.toLocaleString());
+    setKpi('todayRevenue', fmt(d.today_revenue));
+    setKpi('todayTxns',    d.today_txns + ' sale' + (d.today_txns !== 1 ? 's' : ''));
+
+    // Chart — silent update
+    weeklyChart.data.labels = d.day_labels;
+    weeklyChart.data.datasets[0].data = d.weekly_data;
+    weeklyChart.update('none');
+
+    // Transactions
+    if (d.recent.length) {
+      const newTop = d.recent[0].id;
+      const isNew  = lastTopId !== null && newTop !== lastTopId;
+      lastTopId    = newTop;
+
+      document.getElementById('txnTable').innerHTML = d.recent.map((s, i) => {
+        const sc = s.status === 'completed' ? 'bg-emerald-100 text-emerald-700'
+                 : s.status === 'pending'   ? 'bg-amber-100 text-amber-700'
+                 :                            'bg-rose-100 text-rose-600';
+        return `<tr class="hover:bg-slate-50 transition ${i === 0 && isNew ? 'row-new' : ''}">
+          <td class="px-6 py-3.5">
+            <a href="/pos/receipt/${s.id}" class="font-semibold hover:underline text-xs"
+               style="color:var(--theme)">#${s.order_number}</a>
+          </td>
+          <td class="px-4 py-3.5 text-slate-700">${s.customer}</td>
+          <td class="px-4 py-3.5 text-slate-600">${s.product}</td>
+          <td class="px-4 py-3.5 font-semibold text-slate-800">${fmt2(s.total)}</td>
+          <td class="px-4 py-3.5">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-semibold ${sc}">
+              ${s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+            </span>
+          </td>
+          <td class="px-4 py-3.5 text-slate-400 text-xs">${s.time}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Stock alerts
+    const alertsEl = document.getElementById('stockAlerts');
+    if (d.alerts.length) {
+      alertsEl.innerHTML = d.alerts.map(a => {
+        const cls = a.level === 'critical'
+          ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600';
+        return `<div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-slate-700">${a.name}</p>
+            <p class="text-xs text-slate-400">${a.qty} units remaining</p>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded-lg ${cls}">${a.level}</span>
+        </div>`;
+      }).join('');
+    } else {
+      alertsEl.innerHTML = '<p class="text-sm text-slate-400 text-center py-2">'
+        + '<i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i>All products well-stocked</p>';
+    }
+
+    // Goal
+    document.getElementById('goalPct').textContent = d.goal_progress + '%';
+    document.getElementById('goalBar').style.width  = d.goal_progress + '%';
+    document.getElementById('goalGap').textContent  = d.goal_gap > 0
+      ? `You're KES ${Number(d.goal_gap).toLocaleString()} away from your monthly target.`
+      : 'Monthly target reached!';
+
+    // Live goals from goals endpoint
+    try {
+      const gr = await fetch('/goals/progress');
+      const goals = await gr.json();
+      const dashGoals = document.getElementById('dashGoals');
+      if (goals.length) {
+        dashGoals.innerHTML = goals.slice(0, 3).map(g => `
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <p class="text-xs font-semibold opacity-90 truncate max-w-[160px]">${g.title}</p>
+              <span class="text-xs font-bold ${g.done ? 'text-white' : 'opacity-90'}">${g.pct}%</span>
+            </div>
+            <div class="w-full bg-white/30 rounded-full h-1.5">
+              <div class="h-1.5 rounded-full transition-all duration-700 ${g.done ? 'bg-emerald-300' : 'bg-white'}"
+                   style="width:${g.pct}%"></div>
+            </div>
+            <p class="text-[10px] opacity-70 mt-0.5">${g.label}</p>
+          </div>`).join('');
+      } else {
+        dashGoals.innerHTML = '<p class="text-xs opacity-70 text-center py-2">No active goals. <a href="/goals" class="underline font-semibold">Set one</a></p>';
+      }
+    } catch(e) { /* silent */ }
+
+  } catch(e) {
+    console.warn('Dashboard refresh error:', e);
+  }
+}
+
+// Start immediately then every 30 s
+refresh();
+setInterval(refresh, 30000);
 </script>
 {% endblock %}

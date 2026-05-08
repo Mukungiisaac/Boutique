@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% block title %}Goals{% endblock %}
+{% block page_title %}Goals & Targets{% endblock %}
+
+{% block extra_head %}
+<style>
+  .goal-card { transition: box-shadow .15s; }
+  .goal-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+  .progress-bar { transition: width .8s cubic-bezier(.4,0,.2,1); }
+  .type-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+</style>
+{% endblock %}
+
+{% block app_content %}
+<div class="p-6 max-w-5xl mx-auto space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h2 class="text-xl font-bold text-slate-800">Goals & Targets</h2>
+      <p class="text-slate-500 text-sm mt-0.5">Track revenue, profit, sales, and stock targets.</p>
+    </div>
+    <button onclick="openAddModal()"
+            class="flex items-center gap-2 px-4 py-2.5 text-white text-sm font-semibold rounded-xl transition shadow-sm"
+            style="background:var(--theme)">
+      <i class="fa-solid fa-plus text-xs"></i> New Goal
+    </button>
+  </div>
+
+  <!-- Goals grid -->
+  {% if goals_data %}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="goalsGrid">
+    {% for item in goals_data %}
+    {% set g = item.goal %}
+    {% set pct = item.pct %}
+    {% set colors = {
+      'revenue':      ('bg-teal-50',   'text-teal-600',   'fa-dollar-sign',    '#00D4C8'),
+      'profit':       ('bg-emerald-50','text-emerald-600','fa-arrow-trend-up',  '#10b981'),
+      'transactions': ('bg-blue-50',   'text-blue-600',   'fa-receipt',         '#3b82f6'),
+      'stock':        ('bg-violet-50', 'text-violet-600', 'fa-box',             '#8b5cf6'),
+    } %}
+    {% set bg, tc, icon, color = colors.get(g.goal_type, ('bg-slate-50','text-slate-600','fa-bullseye','#64748b')) %}
+    <div class="goal-card bg-white rounded-2xl border border-slate-100 p-5" id="goal-{{ g.id }}">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl {{ bg }} flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid {{ icon }} text-sm {{ tc }}"></i>
+          </div>
+          <div>
+            <p class="font-semibold text-slate-800 leading-tight">{{ g.title }}</p>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span class="type-badge {{ bg }} {{ tc }}">{{ g.goal_type | capitalize }}</span>
+              <span class="type-badge bg-slate-100 text-slate-500">{{ g.period | capitalize }}</span>
+              {% if g.product %}
+              <span class="type-badge bg-amber-50 text-amber-600">{{ g.product.name[:20] }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <button onclick="deleteGoal({{ g.id }})"
+                class="text-slate-300 hover:text-rose-500 transition p-1 flex-shrink-0">
+          <i class="fa-solid fa-trash text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs text-slate-500 font-medium">{{ item.label }}</span>
+          <span class="text-sm font-bold {% if pct >= 100 %}text-emerald-600{% else %}text-slate-800{% endif %}">
+            {{ pct }}%
+          </span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2.5">
+          <div class="progress-bar h-2.5 rounded-full {% if pct >= 100 %}bg-emerald-500{% endif %}"
+               style="width:{{ pct }}%; {% if pct < 100 %}background:{{ color }}{% endif %}"></div>
+        </div>
+      </div>
+
+      <!-- Status message -->
+      {% if pct >= 100 %}
+      <p class="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+        <i class="fa-solid fa-circle-check"></i> Goal achieved!
+      </p>
+      {% elif pct >= 75 %}
+      <p class="text-xs text-slate-500">
+        <i class="fa-solid fa-fire text-amber-400 mr-1"></i>Almost there — {{ 100 - pct }}% to go!
+      </p>
+      {% else %}
+      <p class="text-xs text-slate-400">
+        <i class="fa-solid fa-clock mr-1"></i>
+        {% if g.goal_type in ('revenue', 'profit') %}
+          KES {{ "{:,.0f}".format(g.target - item.current) }} remaining
+        {% else %}
+          {{ "{:,.0f}".format(g.target - item.current) }} remaining
+        {% endif %}
+      </p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="bg-white rounded-2xl border border-slate-100 p-16 text-center">
+    <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+         style="background:var(--theme-light,#E6FAF9)">
+      <i class="fa-solid fa-bullseye text-2xl" style="color:var(--theme)"></i>
+    </div>
+    <h3 class="font-bold text-slate-800 text-lg mb-2">No goals yet</h3>
+    <p class="text-slate-400 text-sm mb-6 max-w-sm mx-auto">
+      Set revenue, profit, sales, or stock targets and track your progress in real time.
+    </p>
+    <button onclick="openAddModal()"
+            class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl"
+            style="background:var(--theme)">
+      <i class="fa-solid fa-plus mr-1.5"></i> Create your first goal
+    </button>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ===== Add Goal Modal ===== -->
+<div id="addGoalModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  <div class="bg-white rounded-2xl shadow-modal w-full max-w-md p-6" style="animation:scaleIn .2s ease">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-bold text-slate-800 text-base">New Goal</h3>
+      <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <div class="space-y-4">
+      <!-- Title -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Goal Name</label>
+        <input type="text" id="goalTitle" placeholder="e.g. Weekly Revenue Target"
+               class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-all"/>
+      </div>
+
+      <!-- Type + Period row -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Goal Type</label>
+          <select id="goalType" onchange="onTypeChange()"
+                  class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50">
+            <option value="revenue">Revenue</option>
+            <option value="profit">Profit</option>
+            <option value="transactions">Number of Sales</option>
+            <option value="stock">Stock Level</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Period</label>
+          <select id="goalPeriod"
+                  class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50">
+            <option value="day">Today</option>
+            <option value="week">This Week</option>
+            <option value="month" selected>This Month</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Target -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5" id="targetLabel">
+          Target Amount (KES)
+        </label>
+        <div class="flex items-center gap-2 border border-slate-200 rounded-xl bg-slate-50 px-3">
+          <span class="text-sm text-slate-400 font-medium" id="targetPrefix">KES</span>
+          <input type="number" id="goalTarget" min="1" step="1" placeholder="50000"
+                 class="flex-1 py-2.5 text-sm bg-transparent outline-none text-slate-800"/>
+        </div>
+      </div>
+
+      <!-- Product (only for stock goals) -->
+      <div id="productRow" class="hidden">
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">
+          Product <span class="text-slate-400 font-normal">(leave blank for all products)</span>
+        </label>
+        <select id="goalProduct"
+                class="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50">
+          <option value="">All products</option>
+          {% for p in products %}
+          <option value="{{ p.id }}">{{ p.name }} ({{ p.total_stock }} in stock)</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="flex gap-3 mt-6">
+      <button onclick="closeAddModal()"
+              class="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        Cancel
+      </button>
+      <button onclick="saveGoal()"
+              class="flex-1 py-2.5 text-white rounded-xl text-sm font-bold"
+              style="background:var(--theme)">
+        Create Goal
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ===== Modal =====
+function openAddModal() {
+  document.getElementById('goalTitle').value  = '';
+  document.getElementById('goalTarget').value = '';
+  document.getElementById('goalType').value   = 'revenue';
+  document.getElementById('goalPeriod').value = 'month';
+  onTypeChange();
+  document.getElementById('addGoalModal').classList.remove('hidden');
+}
+function closeAddModal() {
+  document.getElementById('addGoalModal').classList.add('hidden');
+}
+document.getElementById('addGoalModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('addGoalModal')) closeAddModal();
+});
+
+function onTypeChange() {
+  const type = document.getElementById('goalType').value;
+  const isStock = type === 'stock';
+  const isTxn   = type === 'transactions';
+  document.getElementById('productRow').classList.toggle('hidden', !isStock);
+  document.getElementById('targetPrefix').textContent = (isStock || isTxn) ? '#' : 'KES';
+  document.getElementById('targetLabel').textContent  =
+    isStock ? 'Target Stock Units' :
+    isTxn   ? 'Target Number of Sales' :
+              'Target Amount (KES)';
+}
+
+async function saveGoal() {
+  const title  = document.getElementById('goalTitle').value.trim();
+  const type   = document.getElementById('goalType').value;
+  const period = document.getElementById('goalPeriod').value;
+  const target = parseFloat(document.getElementById('goalTarget').value);
+  const pid    = document.getElementById('goalProduct')?.value || null;
+
+  if (!title)          { showToast('Please enter a goal name.', 'warning'); return; }
+  if (!target || target <= 0) { showToast('Please enter a valid target.', 'warning'); return; }
+
+  const res  = await fetch('/goals/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, goal_type: type, period, target, product_id: pid || null })
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast('Goal created!');
+    closeAddModal();
+    setTimeout(() => location.reload(), 700);
+  } else {
+    showToast(data.message, 'error');
+  }
+}
+
+async function deleteGoal(id) {
+  if (!confirm('Delete this goal?')) return;
+  const res  = await fetch(`/goals/delete/${id}`, { method: 'POST' });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById(`goal-${id}`)?.remove();
+    showToast('Goal removed.');
+  } else {
+    showToast('Could not delete goal.', 'error');
+  }
+}
+
+// ===== Live progress refresh every 30s =====
+async function refreshProgress() {
+  try {
+    const res  = await fetch('/goals/progress');
+    const list = await res.json();
+    list.forEach(g => {
+      const card = document.getElementById(`goal-${g.id}`);
+      if (!card) return;
+      // Update bar
+      const bar = card.querySelector('.progress-bar');
+      if (bar) {
+        bar.style.width = g.pct + '%';
+        bar.className = 'progress-bar h-2.5 rounded-full ' + (g.done ? 'bg-emerald-500' : '');
+        if (!g.done) bar.style.background = '';
+      }
+      // Update pct text
+      const pctEl = card.querySelector('.text-sm.font-bold');
+      if (pctEl) {
+        pctEl.textContent = g.pct + '%';
+        pctEl.className = 'text-sm font-bold ' + (g.done ? 'text-emerald-600' : 'text-slate-800');
+      }
+      // Update label
+      const labelEl = card.querySelector('.text-xs.text-slate-500');
+      if (labelEl) labelEl.textContent = g.label;
+    });
+  } catch(e) { /* silent */ }
+}
+
+setInterval(refreshProgress, 30000);
+</script>
+{% endblock %}

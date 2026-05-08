@@ -430,7 +430,22 @@ function updateUnitPrice(key, value) {
   if (!item) return;
   const parsed = parseFloat(value);
   item.unit_price = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  renderCart();
+
+  // Update only the line total and profit display — do NOT re-render the whole cart
+  const lineTotal  = item.unit_price * item.qty;
+  const lineProfit = (item.unit_price - (item.cost_price || 0)) * item.qty;
+
+  const row = document.querySelector(`.cart-item-row[data-key="${key}"]`);
+  if (row) {
+    const totalEl  = row.querySelector('.line-total');
+    const profitEl = row.querySelector('.line-profit');
+    if (totalEl)  totalEl.textContent  = 'KES ' + lineTotal.toFixed(2);
+    if (profitEl) {
+      profitEl.textContent = 'KES ' + lineProfit.toFixed(2);
+      profitEl.className = 'line-profit mt-1 font-semibold ' + (lineProfit >= 0 ? 'profit-positive' : 'profit-negative');
+    }
+  }
+  updateTotals();
 }
 
 function updateQty(key, delta) {
@@ -471,13 +486,14 @@ function renderCart() {
 
     const div = document.createElement('div');
     div.className = 'cart-item-row border border-slate-100 rounded-xl p-3 mb-2 bg-white';
+    div.dataset.key = item.key;
     div.innerHTML = `
       <div class="flex items-start gap-2">
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold text-slate-800 truncate">${item.name}</p>
           <p class="text-xs text-slate-400">${detailParts.filter(Boolean).join(' / ')}</p>
           <p class="text-xs text-slate-400 mt-1">Cost: KES ${item.cost_price.toFixed(2)} each</p>
-          <p class="text-sm font-bold text-[#00D4C8] mt-1">KES ${lineTotal.toFixed(2)}</p>
+          <p class="line-total text-sm font-bold text-[#00D4C8] mt-1">KES ${lineTotal.toFixed(2)}</p>
         </div>
         <button onclick="removeFromCart('${item.key}')" class="text-slate-300 hover:text-rose-500 transition mt-0.5">
           <i class="fa-solid fa-xmark"></i>
@@ -507,7 +523,7 @@ function renderCart() {
         </label>
         <div class="text-xs text-right">
           <p class="text-slate-400">Profit / Loss</p>
-          <p class="mt-1 font-semibold ${lineProfit >= 0 ? 'profit-positive' : 'profit-negative'}">
+          <p class="line-profit mt-1 font-semibold ${lineProfit >= 0 ? 'profit-positive' : 'profit-negative'}">
             KES ${lineProfit.toFixed(2)}
           </p>
         </div>
