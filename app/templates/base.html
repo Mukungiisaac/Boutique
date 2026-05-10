@@ -8,12 +8,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Tailwind Configuration - Must come AFTER the CDN script -->
   <script>
     // Dynamic theme color from settings
     const THEME = '{{ theme_color }}';
+    
     // Derive dark (-15% lightness) and light (95% lightness tint) variants
     function hexToHsl(hex) {
       let r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
@@ -21,30 +25,35 @@
       if(max===min){h=s=0;}else{let d=max-min;s=l>.5?d/(2-max-min):d/(max+min);switch(max){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;case b:h=(r-g)/d+4;break;}h/=6;}
       return [Math.round(h*360), Math.round(s*100), Math.round(l*100)];
     }
+    
     function hslToHex(h,s,l) {
       s/=100;l/=100;let a=s*Math.min(l,1-l),f=n=>{let k=(n+h/30)%12,c=a*Math.max(Math.min(k-3,9-k,1),-1);return Math.round(255*(l-c)).toString(16).padStart(2,'0');};
       return '#'+f(0)+f(8)+f(4);
     }
+    
     const [h,s,l] = hexToHsl(THEME);
     const THEME_DARK  = hslToHex(h, s, Math.max(l-12, 10));
     const THEME_LIGHT = hslToHex(h, Math.round(s*0.3), 96);
     const THEME_RING  = THEME + '26'; // 15% opacity for focus ring
 
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Inter', 'sans-serif'] },
-          colors: {
-            primary: { DEFAULT: THEME, dark: THEME_DARK, light: THEME_LIGHT },
-            accent:  { DEFAULT: '#FF6B6B', dark: '#E05555' },
-          },
-          boxShadow: {
-            card: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-            hover: '0 4px 12px rgba(0,0,0,0.10)',
-            modal: '0 20px 60px rgba(0,0,0,0.15)'
+    // Configure Tailwind
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Inter', 'sans-serif'] },
+            colors: {
+              primary: { DEFAULT: THEME, dark: THEME_DARK, light: THEME_LIGHT },
+              accent:  { DEFAULT: '#FF6B6B', dark: '#E05555' },
+            },
+            boxShadow: {
+              card: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+              hover: '0 4px 12px rgba(0,0,0,0.10)',
+              modal: '0 20px 60px rgba(0,0,0,0.15)'
+            }
           }
         }
-      }
+      };
     }
 
     // Inject CSS variables for inline styles
@@ -54,6 +63,9 @@
       document.documentElement.style.setProperty('--theme-light', THEME_LIGHT);
     });
   </script>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -69,6 +81,33 @@
     .modal-content { animation: scaleIn .2s ease; }
     @keyframes scaleIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     input:focus, select:focus, textarea:focus { outline: none; border-color: var(--theme, #00D4C8) !important; box-shadow: 0 0 0 3px var(--theme-ring, rgba(0,212,200,.15)); }
+
+    /* ── Mobile sidebar drawer ── */
+    #sidebar {
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+    }
+    #sidebar.sidebar-open {
+      transform: translateX(0) !important;
+    }
+    #sidebarOverlay {
+      transition: opacity .28s ease;
+    }
+
+    /* ── Hamburger animation ── */
+    .ham-line { display:block; width:22px; height:2px; background:#475569; border-radius:2px; transition: all .25s ease; transform-origin: center; }
+    .ham-open .ham-line:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+    .ham-open .ham-line:nth-child(2) { opacity:0; transform: scaleX(0); }
+    .ham-open .ham-line:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+    /* ── Mobile bottom nav ── */
+    #mobileNav a { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; font-size:10px; font-weight:600; color:#94a3b8; text-decoration:none; transition:color .15s; }
+    #mobileNav a.active, #mobileNav a:hover { color:var(--theme,#00D4C8); }
+    #mobileNav a i { font-size:16px; }
+
+    /* ── Ensure page content doesn't hide behind bottom nav on mobile ── */
+    @media (max-width: 767px) {
+      .main-content-area { padding-bottom: 64px; }
+    }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
@@ -77,67 +116,95 @@
 <!-- ===== APP SHELL ===== -->
 <div class="flex h-screen overflow-hidden">
 
-  <!-- Sidebar -->
-  <aside class="w-[220px] flex-shrink-0 bg-white border-r border-slate-100 flex flex-col h-full">
-    <!-- Logo -->
-    <div class="px-5 py-5 border-b border-slate-100">
+  <!-- ── Mobile overlay backdrop ── -->
+  <div id="sidebarOverlay"
+       class="fixed inset-0 bg-black/50 z-40 hidden md:hidden"
+       onclick="closeSidebar()"></div>
+
+  <!-- ── Sidebar (desktop: always visible | mobile: slide-in drawer) ── -->
+  <aside id="sidebar"
+         class="fixed md:relative z-50 md:z-auto
+                w-[260px] md:w-[220px] flex-shrink-0
+                bg-white border-r border-slate-100
+                flex flex-col h-full
+                -translate-x-full md:translate-x-0">
+
+    <!-- Logo + close button (mobile) -->
+    <div class="px-5 py-5 border-b border-slate-100 flex items-center justify-between">
       <a href="{{ url_for('dashboard.index') }}" class="flex items-center gap-2.5" style="text-decoration:none">
         <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--theme, #00D4C8)">
           <i class="fa-solid fa-diamond text-white text-sm"></i>
         </div>
-        <span class="font-bold text-slate-800 text-base leading-tight">{{ store_name.split()[0] if store_name else 'Boutique' }}<br><span style="color:var(--theme, #00D4C8);font-size:.75rem;font-weight:600;letter-spacing:.05em">{{ store_name.split()[1] if store_name.split()|length > 1 else 'POS' }}</span></span>
+        <span class="font-bold text-slate-800 text-base leading-tight">
+          {{ store_name.split()[0] if store_name else 'Boutique' }}<br>
+          <span style="color:var(--theme, #00D4C8);font-size:.75rem;font-weight:600;letter-spacing:.05em">
+            {{ store_name.split()[1] if store_name.split()|length > 1 else 'POS' }}
+          </span>
+        </span>
       </a>
+      <!-- Close button — mobile only -->
+      <button onclick="closeSidebar()"
+              class="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
     </div>
 
     <!-- Nav -->
-    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+    <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
       <a href="{{ url_for('dashboard.index') }}"
+         onclick="closeSidebar()"
          class="sidebar-link {% if request.endpoint and 'dashboard' in request.endpoint %}active{% endif %}">
         <i class="fa-solid fa-chart-pie w-4"></i> Dashboard
         {% if request.endpoint and 'dashboard' in request.endpoint %}
         <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
       </a>
       <a href="{{ url_for('pos.index') }}"
+         onclick="closeSidebar()"
          class="sidebar-link {% if request.endpoint and 'pos' in request.endpoint %}active{% endif %}">
         <i class="fa-solid fa-cash-register w-4"></i> POS
         {% if request.endpoint and 'pos' in request.endpoint %}
         <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
       </a>
       <a href="{{ url_for('inventory.index') }}"
+         onclick="closeSidebar()"
          class="sidebar-link {% if request.endpoint and 'inventory' in request.endpoint %}active{% endif %}">
         <i class="fa-solid fa-box w-4"></i> Inventory
         {% if request.endpoint and 'inventory' in request.endpoint %}
         <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
       </a>
       <a href="{{ url_for('customers.index') }}"
+         onclick="closeSidebar()"
          class="sidebar-link {% if request.endpoint and 'customers' in request.endpoint %}active{% endif %}">
         <i class="fa-solid fa-users w-4"></i> Customers
         {% if request.endpoint and 'customers' in request.endpoint %}
         <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
       </a>
       <a href="{{ url_for('reports.index') }}"
+         onclick="closeSidebar()"
          class="sidebar-link {% if request.endpoint and 'reports' in request.endpoint %}active{% endif %}">
         <i class="fa-solid fa-chart-bar w-4"></i> Reports
         {% if request.endpoint and 'reports' in request.endpoint %}
         <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
       </a>
       <a href="{{ url_for('goals.index') }}"
+         onclick="closeSidebar()"
          class="sidebar-link {% if request.endpoint and 'goals' in request.endpoint %}active{% endif %}">
         <i class="fa-solid fa-bullseye w-4"></i> Goals
         {% if request.endpoint and 'goals' in request.endpoint %}
         <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-50"></i>{% endif %}
       </a>
       <a href="{{ url_for('ai.index') }}"
-         class="sidebar-link {% if request.endpoint and request.endpoint.startswith('ai') %}active{% endif %}"
-         style="{% if request.endpoint and request.endpoint.startswith('ai') %}{% else %}{% endif %}">
+         onclick="closeSidebar()"
+         class="sidebar-link {% if request.endpoint and request.endpoint.startswith('ai') %}active{% endif %}">
         <i class="fa-solid fa-robot w-4"></i> AI Advisor
         <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white" style="background:var(--theme)">AI</span>
       </a>
     </nav>
 
     <!-- Bottom links -->
-    <div class="px-3 pb-4 border-t border-slate-100 pt-3 space-y-1">
+    <div class="px-3 pb-4 border-t border-slate-100 pt-3 space-y-0.5">
       <a href="{{ url_for('settings.index') }}"
+         onclick="closeSidebar()"
          class="sidebar-link {% if request.endpoint and 'settings' in request.endpoint %}active{% endif %}">
         <i class="fa-solid fa-cog w-4"></i> Settings
       </a>
@@ -149,32 +216,40 @@
   </aside>
 
   <!-- Main area -->
-  <div class="flex-1 flex flex-col h-full overflow-hidden">
+  <div class="flex-1 flex flex-col h-full overflow-hidden min-w-0">
 
     <!-- Top bar -->
-    <header class="bg-white border-b border-slate-100 px-6 py-3 flex items-center gap-4 z-10 flex-shrink-0">
-      <h1 class="font-semibold text-slate-800 text-base flex-shrink-0">{% block page_title %}Dashboard{% endblock %}</h1>
+    <header class="bg-white border-b border-slate-100 px-4 md:px-6 py-3 flex items-center gap-3 z-10 flex-shrink-0">
 
-      <!-- Global search -->
-      <div class="flex-1 max-w-md relative" id="globalSearchWrap">
+      <!-- Hamburger — mobile only -->
+      <button id="hamburgerBtn"
+              onclick="toggleSidebar()"
+              class="md:hidden flex flex-col gap-[5px] justify-center items-center w-9 h-9 rounded-xl hover:bg-slate-100 transition flex-shrink-0"
+              aria-label="Toggle menu">
+        <span class="ham-line"></span>
+        <span class="ham-line"></span>
+        <span class="ham-line"></span>
+      </button>
+
+      <h1 class="font-semibold text-slate-800 text-base flex-shrink-0 truncate">{% block page_title %}Dashboard{% endblock %}</h1>
+
+      <!-- Global search — hidden on very small screens -->
+      <div class="flex-1 max-w-md relative hidden sm:block" id="globalSearchWrap">
         <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
         <input type="text" id="globalSearch" placeholder="Quick search..."
                class="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl transition-all"/>
         <div id="searchDropdown" class="hidden absolute top-full mt-1 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden"></div>
       </div>
 
-      <div class="ml-auto flex items-center gap-3">
+      <div class="ml-auto flex items-center gap-2">
 
-        <!-- ===== Notification Bell ===== -->
+        <!-- Notification Bell -->
         <div class="relative" id="notifWrap">
-          <button id="notifBtn"
-                  onclick="toggleNotif()"
+          <button id="notifBtn" onclick="toggleNotif()"
                   class="relative w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition">
             <i class="fa-regular fa-bell text-slate-500 text-sm"></i>
             <span id="notifDot" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full hidden" style="background:var(--theme)"></span>
           </button>
-
-          <!-- Dropdown -->
           <div id="notifDropdown"
                class="hidden absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-modal z-[200] overflow-hidden">
             <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
@@ -183,8 +258,7 @@
             </div>
             <div id="notifList" class="max-h-72 overflow-y-auto divide-y divide-slate-50">
               <div class="px-4 py-8 text-center text-sm text-slate-400">
-                <i class="fa-regular fa-bell-slash text-2xl block mb-2 text-slate-200"></i>
-                Loading…
+                <i class="fa-regular fa-bell-slash text-2xl block mb-2 text-slate-200"></i>Loading…
               </div>
             </div>
             <div class="px-4 py-2.5 border-t border-slate-100 text-center">
@@ -193,54 +267,40 @@
           </div>
         </div>
 
-        <!-- ===== User Menu ===== -->
+        <!-- User Menu -->
         <div class="relative" id="userMenuWrap">
-          <button id="userMenuBtn"
-                  onclick="toggleUserMenu()"
+          <button id="userMenuBtn" onclick="toggleUserMenu()"
                   class="flex items-center gap-2 px-2 py-1 rounded-xl hover:bg-slate-50 transition cursor-pointer">
             <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold overflow-hidden flex-shrink-0" style="background:var(--theme, #00D4C8)">
               {% if current_user.avatar %}
-              <img src="{{ upload_url(current_user.avatar) }}"
-                   class="w-full h-full object-cover" alt="{{ current_user.name }}">
-              {% else %}
-              {{ current_user.name[0] | upper }}
-              {% endif %}
+              <img src="{{ upload_url(current_user.avatar) }}" class="w-full h-full object-cover" alt="{{ current_user.name }}">
+              {% else %}{{ current_user.name[0] | upper }}{% endif %}
             </div>
             <span class="text-sm font-medium text-slate-700 hidden md:block">{{ current_user.name.split()[0] }}</span>
             <i class="fa-solid fa-chevron-down text-slate-400 text-[10px] hidden md:block"></i>
           </button>
-
-          <!-- Dropdown -->
           <div id="userMenuDropdown"
                class="hidden absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-modal z-[200] overflow-hidden">
-            <!-- User info header -->
             <div class="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
               <div class="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style="background:var(--theme)">
                 {% if current_user.avatar %}
-                <img src="{{ upload_url(current_user.avatar) }}"
-                     class="w-full h-full object-cover" alt="{{ current_user.name }}">
-                {% else %}
-                {{ current_user.name[0] | upper }}
-                {% endif %}
+                <img src="{{ upload_url(current_user.avatar) }}" class="w-full h-full object-cover" alt="{{ current_user.name }}">
+                {% else %}{{ current_user.name[0] | upper }}{% endif %}
               </div>
               <div class="min-w-0">
                 <p class="text-sm font-semibold text-slate-800 truncate">{{ current_user.name }}</p>
                 <p class="text-xs text-slate-400 truncate">{{ current_user.email }}</p>
               </div>
             </div>
-            <!-- Menu items -->
             <div class="py-1.5">
-              <a href="{{ url_for('settings.index') }}"
-                 class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition">
+              <a href="{{ url_for('settings.index') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition">
                 <i class="fa-solid fa-user-pen w-4 text-slate-400"></i> Edit Profile
               </a>
-              <a href="{{ url_for('settings.index') }}"
-                 class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition">
+              <a href="{{ url_for('settings.index') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition">
                 <i class="fa-solid fa-cog w-4 text-slate-400"></i> Settings
               </a>
               <div class="border-t border-slate-100 my-1"></div>
-              <a href="{{ url_for('auth.logout') }}"
-                 class="flex items-center gap-3 px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-50 transition">
+              <a href="{{ url_for('auth.logout') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-rose-500 hover:bg-rose-50 transition">
                 <i class="fa-solid fa-arrow-right-from-bracket w-4"></i> Log Out
               </a>
             </div>
@@ -271,24 +331,55 @@
     {% endwith %}
 
     <!-- Page content -->
-    <main class="flex-1 overflow-y-auto">
+    <main class="flex-1 overflow-y-auto main-content-area">
       {% block app_content %}{% endblock %}
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-white border-t border-slate-100 px-6 py-2.5 flex items-center justify-between text-xs text-slate-400 flex-shrink-0">
+    <!-- Footer — hidden on mobile -->
+    <footer class="hidden md:flex bg-white border-t border-slate-100 px-6 py-2.5 items-center justify-between text-xs text-slate-400 flex-shrink-0">
       <span>&copy; 2024 {{ store_name }} &bull; Elegant Retail Solutions</span>
       <div class="flex items-center gap-4">
         <span class="flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full inline-block"></span> System Online
         </span>
         <a href="#" class="hover:text-slate-600">Support</a>
-        <a href="#" class="hover:text-slate-600">Legal</a>
       </div>
     </footer>
 
   </div>
 </div>
+
+<!-- ── Mobile bottom navigation bar ── -->
+<nav id="mobileNav"
+     class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-100 flex items-center"
+     style="padding-bottom: env(safe-area-inset-bottom)">
+  <a href="{{ url_for('dashboard.index') }}"
+     class="{% if request.endpoint and 'dashboard' in request.endpoint %}active{% endif %}">
+    <i class="fa-solid fa-chart-pie"></i>
+    <span>Dashboard</span>
+  </a>
+  <a href="{{ url_for('pos.index') }}"
+     class="{% if request.endpoint and 'pos' in request.endpoint %}active{% endif %}">
+    <i class="fa-solid fa-cash-register"></i>
+    <span>POS</span>
+  </a>
+  <a href="{{ url_for('inventory.index') }}"
+     class="{% if request.endpoint and 'inventory' in request.endpoint %}active{% endif %}">
+    <i class="fa-solid fa-box"></i>
+    <span>Inventory</span>
+  </a>
+  <a href="{{ url_for('customers.index') }}"
+     class="{% if request.endpoint and 'customers' in request.endpoint %}active{% endif %}">
+    <i class="fa-solid fa-users"></i>
+    <span>Customers</span>
+  </a>
+  <!-- More → opens sidebar -->
+  <button onclick="toggleSidebar()"
+          style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;font-size:10px;font-weight:600;color:#94a3b8;background:none;border:none;cursor:pointer;">
+    <i class="fa-solid fa-ellipsis" style="font-size:16px"></i>
+    <span>More</span>
+  </button>
+</nav>
 
 <!-- Toast notification container -->
 <div id="toastContainer" class="fixed bottom-6 right-6 z-[9999] space-y-3 pointer-events-none"></div>
@@ -477,7 +568,46 @@ async function markAllRead() {
 
 
 
-// Auto-dismiss flash messages
+// ===== Sidebar / Hamburger =====
+var sidebarOpen = false;
+
+function openSidebar() {
+  sidebarOpen = true;
+  var sidebar  = document.getElementById('sidebar');
+  var overlay  = document.getElementById('sidebarOverlay');
+  var btn      = document.getElementById('hamburgerBtn');
+  sidebar.classList.add('sidebar-open');
+  overlay.classList.remove('hidden');
+  if (btn) btn.classList.add('ham-open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+  sidebarOpen = false;
+  var sidebar  = document.getElementById('sidebar');
+  var overlay  = document.getElementById('sidebarOverlay');
+  var btn      = document.getElementById('hamburgerBtn');
+  sidebar.classList.remove('sidebar-open');
+  overlay.classList.add('hidden');
+  if (btn) btn.classList.remove('ham-open');
+  document.body.style.overflow = '';
+}
+
+function toggleSidebar() {
+  sidebarOpen ? closeSidebar() : openSidebar();
+}
+
+// Close sidebar on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && sidebarOpen) closeSidebar();
+});
+
+// Auto-close sidebar on desktop resize
+window.addEventListener('resize', function() {
+  if (window.innerWidth >= 768 && sidebarOpen) closeSidebar();
+});
+
+
 setTimeout(function() {
   var fc = document.getElementById('flashContainer');
   if (fc) fc.style.display = 'none';
